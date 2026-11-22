@@ -2,6 +2,7 @@ import type { ResearchDatabase, Task, TaskPriority, TaskStatus } from "@/types";
 import { uid } from "@/lib/format";
 import { logActivity, mutateDb, readDb } from "@/services/mock/client";
 import { people } from "@/services/mock/seed";
+import { validateTaskReparent } from "@/features/graph/lib/task-tree";
 
 export interface TaskInput {
   title: string;
@@ -12,6 +13,13 @@ export interface TaskInput {
   assigneeId?: string | null;
   dueDate?: string | null;
   tags: string[];
+  milestoneId?: string | null;
+  parentTaskId?: string | null;
+}
+
+export interface ReparentTaskInput {
+  milestoneId?: string | null;
+  parentTaskId?: string | null;
 }
 
 function resolveAssignee(id: string | null | undefined) {
@@ -50,8 +58,21 @@ export const tasksApi = {
         createdAt: now,
         updatedAt: now,
         completedAt: input.status === "completed" ? now : null,
+        milestoneId: input.milestoneId ?? null,
+        parentTaskId: input.parentTaskId ?? null,
       };
       db.tasks.unshift(task);
+      if (task.parentTaskId) {
+        const error = validateTaskReparent(
+          db.tasks,
+          task.id,
+          task.parentTaskId,
+          task.projectId ?? "",
+        );
+        if (error) throw new Error(error);
+        const parent = db.tasks.find((item) => item.id === task.parentTaskId);
+        task.milestoneId = task.milestoneId ?? parent?.milestoneId ?? null;
+      }
       logActivity(db, {
         category: "task",
         action: "created a task",
@@ -108,10 +129,71 @@ export const tasksApi = {
       return task;
     }),
 
+  rename: (id: string, title: string) =>
+    mutateDb((db) => {
+      const task = db.tasks.find((item) => item.id === id);
+      if (!task) throw new Error("Task not found");
+      const next = title.trim();
+      if (!next) throw new Error("Task title cannot be empty");
+      task.title = next;
+      task.updatedAt = new Date().toISOString();
+      return task;
+    }),
+
+  /**
+   * Move a task under a milestone or another task. Invalid parents (self,
+   * descendants, cross-project, or a second subtask level) are rejected
+   * before anything is written.
+   */
+  reparent: (id: string, input: ReparentTaskInput) =>
+    mutateDb((db) => {
+      const task = db.tasks.find((item) => item.id === id);
+      if (!task) throw new Error("Task not found");
+
+      if (input.parentTaskId !== undefined) {
+        const error = validateTaskReparent(
+          db.tasks,
+          task.id,
+          input.parentTaskId,
+          task.projectId ?? "",
+        );
+        if (error) throw new Error(error);
+        task.parentTaskId = input.parentTaskId;
+        if (input.parentTaskId) {
+          const parent = db.tasks.find((item) => item.id === input.parentTaskId);
+          if (parent?.milestoneId) task.milestoneId = parent.milestoneId;
+        }
+      }
+
+      if (input.milestoneId !== undefined) {
+        if (input.milestoneId) {
+          const milestone = db.milestones.find((item) => item.id === input.milestoneId);
+          if (!milestone) throw new Error("Milestone not found");
+          if (milestone.projectId !== task.projectId) {
+            throw new Error("Milestones can only contain tasks from the same project.");
+          }
+        }
+        task.milestoneId = input.milestoneId;
+      }
+
+      task.updatedAt = new Date().toISOString();
+      logActivity(db, {
+        category: "task",
+        action: "reorganized a task",
+        target: task.title,
+        projectId: task.projectId,
+      });
+      return task;
+    }),
+
   remove: (id: string) =>
     mutateDb((db) => {
       const task = db.tasks.find((item) => item.id === id);
       db.tasks = db.tasks.filter((item) => item.id !== id);
+      // Orphaned subtasks are promoted rather than deleted silently.
+      db.tasks = db.tasks.map((item) =>
+        item.parentTaskId === id ? { ...item, parentTaskId: null } : item,
+      );
       if (task) {
         logActivity(db, {
           category: "task",

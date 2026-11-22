@@ -12,6 +12,7 @@ import {
   Library,
   LogOut,
   Microscope,
+  Network,
   NotebookPen,
   Rss,
   Search,
@@ -75,6 +76,10 @@ const manageNav: NavItem[] = [
   { label: "Notifications", to: "/app/notifications", icon: Bell },
   { label: "Activity", to: "/app/activity", icon: ActivityIcon },
   { label: "Settings", to: "/app/settings", icon: Settings },
+];
+
+const insightsNav: NavItem[] = [
+  { label: "Knowledge Graph", to: "/app/knowledge", icon: Network },
 ];
 
 function SidebarLink({
@@ -295,6 +300,27 @@ export function SidebarContent({
         )}
         <div className="space-y-0.5">
           {workspaceNav(pendingTasks).map((item) => (
+            <SidebarLink
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+              active={isActive(item)}
+            />
+          ))}
+        </div>
+
+        <div className={cn("mb-1.5 mt-5", collapsed ? "px-0" : "px-2.5")}>
+          {!collapsed ? (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">
+              Insights
+            </p>
+          ) : (
+            <div className="mx-auto mb-2 h-px w-6 bg-white/10" />
+          )}
+        </div>
+        <div className="space-y-0.5">
+          {insightsNav.map((item) => (
             <SidebarLink
               key={item.to}
               item={item}

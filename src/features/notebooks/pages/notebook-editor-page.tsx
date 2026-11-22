@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import LinkExtension from "@tiptap/extension-link";
@@ -61,6 +61,7 @@ import { useUiStore } from "@/store/ui-store";
 import { notebooksApi } from "../api";
 import { countWords, htmlToMarkdown } from "../lib";
 import { EditorToolbar } from "../components/editor-toolbar";
+import { NotebookOutline } from "@/features/graph/components/notebook-outline";
 
 function EntryEditor({
   entry,
@@ -68,12 +69,14 @@ function EntryEditor({
   onEntryTitleChange,
   papers,
   onChange,
+  onEditorReady,
 }: {
   entry: NotebookEntry;
   entryTitle: string;
   onEntryTitleChange: (title: string) => void;
   papers: Paper[];
   onChange: (content: string) => void;
+  onEditorReady?: (editor: Editor | null) => void;
 }) {
   const editor = useEditor({
     extensions: [
@@ -101,6 +104,11 @@ function EntryEditor({
       onChange(instance.getHTML());
     },
   });
+
+  useEffect(() => {
+    onEditorReady?.(editor);
+    return () => onEditorReady?.(null);
+  }, [editor, onEditorReady]);
 
   if (!editor) {
     return (
@@ -182,6 +190,7 @@ export function NotebookEditorPage() {
   const [revision, setRevision] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [entryEditor, setEntryEditor] = useState<Editor | null>(null);
   const draftRef = useRef({
     notebookTitle: "",
     entryId: "",
@@ -480,7 +489,7 @@ export function NotebookEditorPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[256px_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)_auto] xl:grid-cols-[240px_minmax(0,1fr)_auto]">
         <aside className="space-y-4 self-start lg:sticky lg:top-24">
           <div className="rounded-xl border border-border bg-card p-4 shadow-subtle">
             <p className="eyebrow">Notebook details</p>
@@ -640,6 +649,7 @@ export function NotebookEditorPage() {
             }}
             papers={projectPapers}
             onChange={(content) => markDirty({ content })}
+            onEditorReady={setEntryEditor}
           />
 
           <div className="border-t border-border bg-muted/20 px-5 py-3 sm:px-10">
@@ -655,6 +665,11 @@ export function NotebookEditorPage() {
             </div>
           </div>
         </div>
+
+        <NotebookOutline
+          editor={entryEditor}
+          className="self-start lg:sticky lg:top-24"
+        />
       </div>
 
       <ConfirmDialog

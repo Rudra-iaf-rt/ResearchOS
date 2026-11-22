@@ -21,6 +21,21 @@ const ActivityPage = lazy(() =>
     default: module.ActivityPage,
   })),
 );
+const ProjectDAGPage = lazy(() =>
+  import("@/features/graph/pages/project-dag-page").then((module) => ({
+    default: module.ProjectDAGPage,
+  })),
+);
+const ProjectTreePage = lazy(() =>
+  import("@/features/graph/pages/project-tree-page").then((module) => ({
+    default: module.ProjectTreePage,
+  })),
+);
+const KnowledgeGraphPage = lazy(() =>
+  import("@/features/graph/pages/knowledge-graph-page").then((module) => ({
+    default: module.KnowledgeGraphPage,
+  })),
+);
 const DashboardPage = lazy(() =>
   import("@/features/dashboard/pages/dashboard-page").then((module) => ({
     default: module.DashboardPage,
@@ -148,6 +163,9 @@ export function AppRouter() {
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+              <Route path="projects/:projectId/graph" element={<ProjectDAGPage />} />
+              <Route path="projects/:projectId/tree" element={<ProjectTreePage />} />
+              <Route path="knowledge" element={<KnowledgeGraphPage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route path="notebooks" element={<NotebooksPage />} />
               <Route path="notebooks/:notebookId" element={<NotebookEditorPage />} />

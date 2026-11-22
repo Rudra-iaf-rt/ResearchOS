@@ -14,6 +14,7 @@ import {
   Library,
   Loader2,
   Microscope,
+  Network,
   NotebookPen,
   Rss,
   Search,
@@ -131,6 +132,14 @@ export function CommandPalette() {
         group: "Navigate",
         icon: FolderOpen,
         action: () => go("/app/files"),
+      },
+      {
+        id: "nav-knowledge",
+        label: "Knowledge Graph",
+        sublabel: "Links between artifacts",
+        group: "Navigate",
+        icon: Network,
+        action: () => go("/app/knowledge"),
       },
       {
         id: "nav-activity",

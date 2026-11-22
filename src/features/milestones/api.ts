@@ -47,10 +47,24 @@ export const milestonesApi = {
       return milestone;
     }),
 
+  rename: (id: string, title: string) =>
+    mutateDb((db) => {
+      const milestone = db.milestones.find((item) => item.id === id);
+      if (!milestone) throw new Error("Milestone not found");
+      const next = title.trim();
+      if (!next) throw new Error("Milestone title cannot be empty");
+      milestone.title = next;
+      return milestone;
+    }),
+
   remove: (id: string) =>
     mutateDb((db) => {
       const milestone = db.milestones.find((item) => item.id === id);
       db.milestones = db.milestones.filter((item) => item.id !== id);
+      // Tasks keep their records and become unassigned instead of vanishing.
+      db.tasks = db.tasks.map((task) =>
+        task.milestoneId === id ? { ...task, milestoneId: null } : task,
+      );
       if (milestone) {
         logActivity(db, {
           category: "milestone",

@@ -12,12 +12,16 @@ describe("demo database migration", () => {
     window.localStorage.removeItem(DEMO_DB_KEY);
   });
 
-  it("seeds version 2 with a research log and review notifications", () => {
+  it("seeds version 3 with graph collections and research data", () => {
     const db = loadDatabase();
     expect(db.version).toBe(DEMO_DB_VERSION);
-    expect(db.version).toBe(2);
+    expect(db.version).toBe(3);
     expect(db.researchLog.length).toBeGreaterThan(0);
     expect(db.notifications.some((item) => item.kind === "review")).toBe(true);
+    expect(db.graphNodes.length).toBeGreaterThan(0);
+    expect(db.graphEdges.length).toBeGreaterThan(0);
+    expect(db.citations.length).toBeGreaterThan(0);
+    expect(db.tasks.some((task) => task.parentTaskId)).toBe(true);
   });
 
   it("upgrades a stored version 1 database without losing existing records", () => {
@@ -33,11 +37,32 @@ describe("demo database migration", () => {
 
     const upgraded = loadDatabase();
 
-    expect(upgraded.version).toBe(2);
+    expect(upgraded.version).toBe(3);
     expect(upgraded.projects.map((project) => project.id)).toEqual(originalProjectIds);
-    expect(upgraded.tasks.length).toBe(originalTaskCount);
+    expect(upgraded.tasks.length).toBeGreaterThanOrEqual(originalTaskCount);
     expect(upgraded.researchLog.length).toBeGreaterThan(0);
     expect(upgraded.notifications.some((item) => item.kind === "review")).toBe(true);
+    expect(upgraded.graphNodes.length).toBeGreaterThan(0);
+    expect(upgraded.graphEdges.every((edge) => typeof edge.from === "string")).toBe(true);
+    expect(upgraded.citations.length).toBeGreaterThan(0);
+  });
+
+  it("upgrades a version 2 database in place and keeps tasks and files", () => {
+    const legacy = createSeedDatabase();
+    legacy.version = 2;
+    const originalTask = legacy.tasks[0];
+    const originalFileIds = legacy.files.map((file) => file.id);
+    window.localStorage.setItem(DEMO_DB_KEY, JSON.stringify(legacy));
+
+    const upgraded = loadDatabase();
+
+    expect(upgraded.version).toBe(3);
+    expect(upgraded.tasks.find((task) => task.id === originalTask.id)?.title).toBe(
+      originalTask.title,
+    );
+    expect(upgraded.files.map((file) => file.id)).toEqual(originalFileIds);
+    expect(upgraded.graphNodes.length).toBeGreaterThan(0);
+    expect(upgraded.folders.some((folder) => folder.projectId === "proj_cortical")).toBe(true);
   });
 
   it("resets the database back to the seeded state", () => {

@@ -6,7 +6,6 @@ import {
   ChevronRight,
   CloudUpload,
   Download,
-  Folder,
   FolderOpen,
   FolderPlus,
   HardDrive,
@@ -24,6 +23,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SearchInput } from "@/components/shared/search-input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { FileTree } from "@/features/graph/components/file-tree";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -284,14 +284,6 @@ export function FilesPage() {
     onError: () => toast.error("Could not create the folder"),
   });
 
-  const folderCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    files.forEach((file) => {
-      if (file.folderId) counts.set(file.folderId, (counts.get(file.folderId) ?? 0) + 1);
-    });
-    return counts;
-  }, [files]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const scoped = currentFolder
@@ -332,8 +324,6 @@ export function FilesPage() {
     setRenameValue(file.name);
   };
 
-  const topLevelFolders = folders.filter((folder) => folder.parentId === null);
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -366,85 +356,26 @@ export function FilesPage() {
       <div className="grid gap-4 lg:grid-cols-[228px_minmax(0,1fr)]">
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-2 shadow-subtle">
-            <p className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Folders
-            </p>
-            <button
-              type="button"
-              onClick={() => goToFolder(null)}
-              aria-current={!currentFolder ? "page" : undefined}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors",
-                !currentFolder
-                  ? "bg-teal-50 font-medium text-teal-800 dark:bg-teal-500/10 dark:text-teal-200"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <FolderOpen className="size-3.5 shrink-0" />
-              <span className="flex-1 truncate text-left">All files</span>
-              <span className="text-[10px] tabular-nums">{files.length}</span>
-            </button>
-            {topLevelFolders.map((folder) => {
-              const children = folders.filter((item) => item.parentId === folder.id);
-              const active = currentFolder?.id === folder.id;
-              const childActive = currentFolder?.parentId === folder.id;
-              return (
-                <div key={folder.id}>
-                  <button
-                    type="button"
-                    onClick={() => goToFolder(folder.id)}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors",
-                      active || childActive
-                        ? "font-medium text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <Folder
-                      className={cn(
-                        "size-3.5 shrink-0",
-                        active && "fill-teal-100 text-teal-700 dark:fill-teal-500/20 dark:text-teal-300",
-                      )}
-                    />
-                    <span className="flex-1 truncate text-left">{folder.name}</span>
-                    <span className="text-[10px] tabular-nums">
-                      {folderCounts.get(folder.id) ?? 0}
-                    </span>
-                  </button>
-                  {children.length > 0 && (
-                    <div className="ml-3.5 border-l border-border pl-2">
-                      {children.map((child) => (
-                        <button
-                          key={child.id}
-                          type="button"
-                          onClick={() => goToFolder(child.id)}
-                          aria-current={currentFolder?.id === child.id ? "page" : undefined}
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] transition-colors",
-                            currentFolder?.id === child.id
-                              ? "bg-teal-50 font-medium text-teal-800 dark:bg-teal-500/10 dark:text-teal-200"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          )}
-                        >
-                          <span className="flex-1 truncate text-left">{child.name}</span>
-                          <span className="text-[10px] tabular-nums">
-                            {folderCounts.get(child.id) ?? 0}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setFolderOpen(true)}
-              className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-2 py-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:border-teal-400 hover:text-teal-700 dark:hover:text-teal-300"
-            >
-              <FolderPlus className="size-3.5" /> New folder
-            </button>
+            <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Folders
+              </p>
+              <button
+                type="button"
+                onClick={() => setFolderOpen(true)}
+                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="New folder"
+              >
+                <FolderPlus className="size-3" />
+              </button>
+            </div>
+            <div className="max-h-[430px] overflow-y-auto pr-0.5 scrollbar-thin">
+              <FileTree
+                currentFolderId={currentFolder?.id ?? null}
+                onSelectFolder={goToFolder}
+                onSelectFile={openFile}
+              />
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-subtle">

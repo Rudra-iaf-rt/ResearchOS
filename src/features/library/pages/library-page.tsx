@@ -7,6 +7,7 @@ import {
   BookPlus,
   FileInput,
   Library,
+  Network,
   SearchX,
   Star,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { queryKeys } from "@/lib/query-keys";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,7 @@ import { PaperCard } from "../components/paper-card";
 import { PaperDetailSheet } from "../components/paper-detail-sheet";
 import { PaperFormDialog } from "../components/paper-form-dialog";
 import { ImportPaperDialog } from "../components/import-paper-dialog";
+import { CitationGraphTab } from "@/features/graph/components/citation-graph-tab";
 
 type StatusFilter = "all" | PaperReadStatus | "favorites";
 type SortKey = "added" | "year" | "title" | "citations";
@@ -94,6 +97,14 @@ export function LibraryPage() {
 
   const selectedId = searchParams.get("paper");
   const selectedPaper = papers.find((paper) => paper.id === selectedId) ?? null;
+
+  const activeTab = searchParams.get("tab") === "graph" ? "graph" : "papers";
+  const setActiveTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === "graph") next.set("tab", "graph");
+    else next.delete("tab");
+    setSearchParams(next, { replace: true });
+  };
 
   const recordArtifactView = useUiStore((state) => state.recordArtifactView);
 
@@ -241,6 +252,17 @@ export function LibraryPage() {
         }
       />
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList aria-label="Library views">
+          <TabsTrigger value="papers">
+            <Library /> Papers
+          </TabsTrigger>
+          <TabsTrigger value="graph">
+            <Network /> Citation graph
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="papers" className="mt-0">
       <div className="space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div
@@ -456,6 +478,17 @@ export function LibraryPage() {
           </p>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="graph" className="mt-0">
+          <CitationGraphTab
+            onOpenPaper={(paperId) => {
+              const paper = papers.find((item) => item.id === paperId);
+              if (paper) openPaper(paper);
+            }}
+          />
+        </TabsContent>
+      </Tabs>
 
       <PaperDetailSheet
         paper={selectedPaper}

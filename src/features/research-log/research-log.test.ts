@@ -12,7 +12,7 @@ import {
 } from "@/features/research-log/lib";
 import { feedApi } from "@/features/feed/api";
 import { activityApi } from "@/features/activity/api";
-import { DEMO_DB_KEY, loadDatabase } from "@/services/mock/storage";
+import { DEMO_DB_KEY, DEMO_DB_VERSION, loadDatabase } from "@/services/mock/storage";
 
 const baseInput = {
   mode: "analysis" as ResearchMode,
@@ -94,7 +94,7 @@ describe("research log API", () => {
   it("persists entries across a fresh database read", async () => {
     const created = await researchLogApi.create(baseInput);
     const db = loadDatabase();
-    expect(db.version).toBe(2);
+    expect(db.version).toBe(DEMO_DB_VERSION);
     expect(db.researchLog.some((entry) => entry.id === created.id)).toBe(true);
   });
 });

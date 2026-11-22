@@ -4,7 +4,10 @@ import type {
   AnalyticsPoint,
   AppNotification,
   ArtifactRef,
+  CitationLink,
   Folder,
+  GraphEdge,
+  GraphNode,
   Milestone,
   Notebook,
   Paper,
@@ -479,7 +482,76 @@ const tasks: Task[] = [
     updatedAt: hoursAgo(30),
     completedAt: null,
   },
+  {
+    id: "task_21",
+    title: "Document ICA rejection thresholds",
+    status: "in-progress",
+    priority: "medium",
+    projectId: "proj_cortical",
+    assignee: people.arjun,
+    dueDate: daysFromNow(2),
+    tags: ["Analysis", "Documentation"],
+    createdAt: daysAgo(5),
+    updatedAt: hoursAgo(6),
+    completedAt: null,
+    parentTaskId: "task_1",
+    milestoneId: "ms_1",
+  },
+  {
+    id: "task_22",
+    title: "Record XRD immediately after calcination",
+    status: "todo",
+    priority: "medium",
+    projectId: "proj_catalysts",
+    assignee: people.samuel,
+    dueDate: daysFromNow(3),
+    tags: ["Synthesis", "Lab"],
+    createdAt: daysAgo(4),
+    updatedAt: daysAgo(4),
+    completedAt: null,
+    parentTaskId: "task_6",
+    milestoneId: "ms_4",
+  },
+  {
+    id: "task_23",
+    title: "Export calibration residuals for review",
+    status: "todo",
+    priority: "high",
+    projectId: "proj_heat",
+    assignee: people.arjun,
+    dueDate: daysFromNow(1),
+    tags: ["Validation", "Data"],
+    createdAt: daysAgo(2),
+    updatedAt: daysAgo(2),
+    completedAt: null,
+    parentTaskId: "task_9",
+    milestoneId: "ms_6",
+  },
 ];
+
+/**
+ * Milestone placement for the seeded tasks. Kept separate so the original
+ * task records stay readable while the Phase 2 project tree remains realistic.
+ */
+const taskMilestoneSeed: Record<string, string> = {
+  task_1: "ms_1",
+  task_2: "ms_2",
+  task_3: "ms_3",
+  task_4: "ms_1",
+  task_5: "ms_2",
+  task_20: "ms_3",
+  task_6: "ms_4",
+  task_7: "ms_4",
+  task_8: "ms_5",
+  task_9: "ms_6",
+  task_10: "ms_7",
+  task_11: "ms_6",
+  task_12: "ms_8",
+  task_13: "ms_8",
+  task_14: "ms_9",
+  task_15: "ms_9",
+  task_16: "ms_10",
+};
 
 const milestones: Milestone[] = [
   {
@@ -1029,11 +1101,41 @@ const papers: Paper[] = [
 ];
 
 const folders: Folder[] = [
-  { id: "folder_datasets", name: "Datasets", parentId: null, createdAt: daysAgo(180) },
-  { id: "folder_eeg_raw", name: "EEG Raw", parentId: "folder_datasets", createdAt: daysAgo(150) },
-  { id: "folder_manuscripts", name: "Manuscripts", parentId: null, createdAt: daysAgo(180) },
-  { id: "folder_protocols", name: "Protocols", parentId: null, createdAt: daysAgo(170) },
-  { id: "folder_figures", name: "Figures", parentId: null, createdAt: daysAgo(120) },
+  {
+    id: "folder_datasets",
+    name: "Datasets",
+    parentId: null,
+    createdAt: daysAgo(180),
+    projectId: null,
+  },
+  {
+    id: "folder_eeg_raw",
+    name: "EEG Raw",
+    parentId: "folder_datasets",
+    createdAt: daysAgo(150),
+    projectId: "proj_cortical",
+  },
+  {
+    id: "folder_manuscripts",
+    name: "Manuscripts",
+    parentId: null,
+    createdAt: daysAgo(180),
+    projectId: null,
+  },
+  {
+    id: "folder_protocols",
+    name: "Protocols",
+    parentId: null,
+    createdAt: daysAgo(170),
+    projectId: null,
+  },
+  {
+    id: "folder_figures",
+    name: "Figures",
+    parentId: null,
+    createdAt: daysAgo(120),
+    projectId: null,
+  },
 ];
 
 const files: ResearchFile[] = [
@@ -1711,6 +1813,589 @@ export function createSeedResearchLog(): ResearchLogEntry[] {
   return structuredClone(researchLogSeed);
 }
 
+const graphNodes: GraphNode[] = [
+  // Cortical Dynamics — hypothesis → experiment → run DAG
+  {
+    id: "hyp_cortical_theta",
+    type: "hypothesis",
+    label: "Theta–gamma coupling predicts working-memory capacity",
+    status: "supported",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_cortical",
+      owner: "Dr. Maya Chen",
+      description:
+        "Frontal theta coupling with parietal gamma should scale with working-memory load and predict individual capacity.",
+      date: daysAgo(58),
+    },
+  },
+  {
+    id: "hyp_cortical_alpha",
+    type: "hypothesis",
+    label: "Precision-weighted prediction errors sharpen alpha gain",
+    status: "testing",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_cortical",
+      owner: "Dr. Priya Nair",
+      description:
+        "Cue reliability should modulate alpha suppression in proportion to the expected precision of the forthcoming stimulus.",
+      date: daysAgo(33),
+    },
+  },
+  {
+    id: "hyp_cortical_pipeline",
+    type: "hypothesis",
+    label: "Locked preprocessing generalizes across recording sites",
+    status: "supported",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      description:
+        "A frozen preprocessing pipeline should preserve subject-level spectral estimates across four acquisition sites.",
+      date: daysAgo(74),
+    },
+  },
+  {
+    id: "hyp_cortical_conclusion",
+    type: "hypothesis",
+    label: "Coupling indexes load-dependent maintenance, not arousal",
+    status: "supported",
+    metadata: {
+      kind: "conclusion",
+      projectId: "proj_cortical",
+      owner: "Dr. Maya Chen",
+      description:
+        "Runs from cohorts A and B converge on a load-specific coupling effect that is absent during passive viewing.",
+      date: daysAgo(6),
+    },
+  },
+  {
+    id: "exp_cortical_cohort_a",
+    type: "experiment",
+    label: "Cohort A — high-density EEG",
+    status: "completed",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Dr. Maya Chen",
+      description: "20 participants, three working-memory load conditions.",
+      date: daysAgo(64),
+      action: "open-experiment",
+      metrics: [
+        { label: "Participants", value: "20" },
+        { label: "Usable epochs", value: "94%" },
+      ],
+    },
+  },
+  {
+    id: "exp_cortical_cohort_b",
+    type: "experiment",
+    label: "Cohort B — replication",
+    status: "running",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      description: "38 included participants with the locked preprocessing pipeline.",
+      date: hoursAgo(5),
+      action: "open-experiment",
+      metrics: [
+        { label: "Participants", value: "38" },
+        { label: "Completed", value: "31" },
+      ],
+    },
+  },
+  {
+    id: "exp_cortical_alpha",
+    type: "experiment",
+    label: "Alpha precision MEG",
+    status: "planned",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Dr. Priya Nair",
+      description: "Parametric cue-reliability manipulation with MEG.",
+      action: "open-experiment",
+    },
+  },
+  {
+    id: "exp_cortical_multisite",
+    type: "experiment",
+    label: "Four-site harmonization",
+    status: "analysis",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      description: "Replication of the pipeline across four acquisition sites.",
+      action: "open-experiment",
+      metrics: [{ label: "Sites", value: "4" }],
+    },
+  },
+  {
+    id: "run_cortical_a_preprocess",
+    type: "run",
+    label: "cohort-a/preprocess-v2",
+    status: "completed",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      date: daysAgo(9),
+      action: "open-run-logs",
+      metrics: [
+        { label: "Duration", value: "42 min" },
+        { label: "Rejected ICs", value: "30" },
+      ],
+    },
+  },
+  {
+    id: "run_cortical_a_coupling",
+    type: "run",
+    label: "cohort-a/coupling-v3",
+    status: "completed",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Dr. Priya Nair",
+      date: daysAgo(8),
+      action: "open-run-logs",
+      metrics: [{ label: "Subjects", value: "20" }],
+    },
+  },
+  {
+    id: "run_cortical_b_preprocess",
+    type: "run",
+    label: "cohort-b/preprocess-v2",
+    status: "running",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      date: hoursAgo(4),
+      action: "open-run-logs",
+      metrics: [{ label: "Subjects", value: "38" }],
+    },
+  },
+  {
+    id: "run_cortical_b_coupling",
+    type: "run",
+    label: "cohort-b/coupling-v3",
+    status: "queued",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Dr. Priya Nair",
+      action: "open-run-logs",
+    },
+  },
+  {
+    id: "run_cortical_alpha_1",
+    type: "run",
+    label: "alpha-meg/pilot-1",
+    status: "planned",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Dr. Priya Nair",
+      action: "open-run-logs",
+    },
+  },
+  {
+    id: "run_cortical_multisite_1",
+    type: "run",
+    label: "multisite/harmonize-v1",
+    status: "completed",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      date: daysAgo(20),
+      action: "open-run-logs",
+      metrics: [{ label: "ICC", value: "0.84" }],
+    },
+  },
+  {
+    id: "run_cortical_multisite_2",
+    type: "run",
+    label: "multisite/validate-v2",
+    status: "analysis",
+    metadata: {
+      projectId: "proj_cortical",
+      owner: "Arjun Rao",
+      date: daysAgo(3),
+      action: "open-run-logs",
+    },
+  },
+  // Catalysts
+  {
+    id: "hyp_catalysts_ni_doping",
+    type: "hypothesis",
+    label: "5 mol% Ni doping maximizes visible-light hydrogen evolution",
+    status: "testing",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_catalysts",
+      owner: "Dr. Lena Fischer",
+      description:
+        "Moderate Ni substitution should improve charge separation without introducing recombination centres.",
+      date: daysAgo(8),
+    },
+  },
+  {
+    id: "hyp_catalysts_stability",
+    type: "hypothesis",
+    label: "Surface reconstruction predicts 100-hour photostability",
+    status: "supported",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_catalysts",
+      owner: "Samuel Okafor",
+      description:
+        "Reversible surface reconstruction should precede irreversible oxygen loss and activity decay.",
+      date: daysAgo(12),
+    },
+  },
+  {
+    id: "exp_catalysts_batch4",
+    type: "experiment",
+    label: "Batch 4 — Ni-doped TiO₂",
+    status: "running",
+    metadata: {
+      projectId: "proj_catalysts",
+      owner: "Samuel Okafor",
+      description: "Three doping concentrations synthesized with XRD after calcination.",
+      date: hoursAgo(9),
+      action: "open-experiment",
+    },
+  },
+  {
+    id: "exp_catalysts_stability",
+    type: "experiment",
+    label: "100-hour photostability",
+    status: "planned",
+    metadata: {
+      projectId: "proj_catalysts",
+      owner: "Dr. Lena Fischer",
+      action: "open-experiment",
+    },
+  },
+  {
+    id: "run_catalysts_batch4_synth",
+    type: "run",
+    label: "batch4/synthesis",
+    status: "completed",
+    metadata: {
+      projectId: "proj_catalysts",
+      owner: "Samuel Okafor",
+      date: daysAgo(5),
+      action: "open-run-logs",
+    },
+  },
+  {
+    id: "run_catalysts_batch4_xrd",
+    type: "run",
+    label: "batch4/xrd",
+    status: "analysis",
+    metadata: {
+      projectId: "proj_catalysts",
+      owner: "Samuel Okafor",
+      date: hoursAgo(9),
+      action: "open-run-logs",
+    },
+  },
+  {
+    id: "run_catalysts_stability_1",
+    type: "run",
+    label: "stability/100h",
+    status: "planned",
+    metadata: {
+      projectId: "proj_catalysts",
+      owner: "Dr. Lena Fischer",
+      action: "open-run-logs",
+    },
+  },
+  // Urban heat
+  {
+    id: "hyp_heat_canopy",
+    type: "hypothesis",
+    label: "Low canopy cover predicts ward-level heat exposure",
+    status: "supported",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_heat",
+      owner: "Arjun Rao",
+      description:
+        "Ward composites of surface temperature and canopy cover should rank heat priority consistently.",
+      date: daysAgo(18),
+    },
+  },
+  {
+    id: "hyp_heat_calibration",
+    type: "hypothesis",
+    label: "Bias-corrected sensors reproduce Landsat rankings",
+    status: "testing",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_heat",
+      owner: "Dr. Priya Nair",
+      description:
+        "A siting-aware correction model should reduce RMSE enough to preserve ward-level rankings.",
+      date: daysAgo(10),
+    },
+  },
+  {
+    id: "exp_heat_mosaic",
+    type: "experiment",
+    label: "Summer surface-temperature mosaic",
+    status: "completed",
+    metadata: {
+      projectId: "proj_heat",
+      owner: "Tomas Lindqvist",
+      date: daysAgo(6),
+      action: "open-experiment",
+      metrics: [{ label: "Resolution", value: "30 m" }],
+    },
+  },
+  {
+    id: "exp_heat_calibration",
+    type: "experiment",
+    label: "Ground-sensor calibration",
+    status: "running",
+    metadata: {
+      projectId: "proj_heat",
+      owner: "Arjun Rao",
+      date: hoursAgo(2),
+      action: "open-experiment",
+      metrics: [{ label: "Sensors", value: "40" }],
+    },
+  },
+  {
+    id: "run_heat_mosaic",
+    type: "run",
+    label: "landsat/summer-mosaic",
+    status: "completed",
+    metadata: {
+      projectId: "proj_heat",
+      owner: "Tomas Lindqvist",
+      date: daysAgo(6),
+      action: "open-run-logs",
+    },
+  },
+  {
+    id: "run_heat_calibration",
+    type: "run",
+    label: "sensors/calibrate-v1",
+    status: "completed",
+    metadata: {
+      projectId: "proj_heat",
+      owner: "Arjun Rao",
+      date: daysAgo(4),
+      action: "open-run-logs",
+    },
+  },
+  {
+    id: "run_heat_validation",
+    type: "run",
+    label: "sensors/cross-validate-v2",
+    status: "running",
+    metadata: {
+      projectId: "proj_heat",
+      owner: "Arjun Rao",
+      date: hoursAgo(4),
+      action: "open-run-logs",
+    },
+  },
+  // Gut atlas planning hypothesis
+  {
+    id: "hyp_gut_atlas",
+    type: "hypothesis",
+    label: "Cross-cohort harmonization preserves rare epithelial states",
+    status: "planned",
+    metadata: {
+      kind: "hypothesis",
+      projectId: "proj_gut",
+      owner: "Dr. Priya Nair",
+      description:
+        "Batch correction should retain rare tuft-cell and enteroendocrine populations across six cohorts.",
+      date: daysAgo(9),
+    },
+  },
+  // Decisions (compatible graph nodes until the Decisions module lands)
+  {
+    id: "dec_ica_components",
+    type: "decision",
+    label: "Use the 30-component ICA solution",
+    status: "accepted",
+    metadata: {
+      kind: "decision",
+      projectId: "proj_cortical",
+      owner: "Dr. Lena Fischer",
+      description:
+        "Component count frozen at 30 after visual inspection and replication of cohort A artifacts.",
+      date: daysAgo(2),
+    },
+  },
+  {
+    id: "dec_batch4_ph",
+    type: "decision",
+    label: "Hold batch 4 at 5 mol% doping",
+    status: "proposed",
+    metadata: {
+      kind: "decision",
+      projectId: "proj_catalysts",
+      owner: "Dr. Lena Fischer",
+      description: "Awaiting XRD confirmation before the next synthesis batch.",
+      date: daysAgo(1),
+    },
+  },
+  {
+    id: "dec_heat_calibration",
+    type: "decision",
+    label: "Adopt bias-corrected sensor calibration",
+    status: "proposed",
+    metadata: {
+      kind: "decision",
+      projectId: "proj_heat",
+      owner: "Arjun Rao",
+      description: "Reviewing residuals before locking the correction model.",
+      date: hoursAgo(4),
+    },
+  },
+  // Reference-only papers used by the citation graph to demonstrate the
+  // "Only in my library" filter. They are explicitly marked as external.
+  {
+    id: "paper_ext_nakamura2019",
+    type: "paper",
+    label: "Oscillatory mechanisms of working-memory maintenance",
+    metadata: {
+      inLibrary: false,
+      year: 2019,
+      journal: "Trends in Cognitive Sciences",
+      authors: ["S. Nakamura", "K. Ito"],
+      tags: ["Working Memory", "Review"],
+      description:
+        "Reference-only mock citation record. Not part of the local library and not externally verified.",
+    },
+  },
+  {
+    id: "paper_ext_gomez2021",
+    type: "paper",
+    label: "Urban canopy cover and intra-urban heat exposure",
+    metadata: {
+      inLibrary: false,
+      year: 2021,
+      journal: "Urban Climate",
+      authors: ["E. Gómez", "R. Singh"],
+      tags: ["Heat", "Urban"],
+      description:
+        "Reference-only mock citation record. Not part of the local library and not externally verified.",
+    },
+  },
+  {
+    id: "paper_ext_watanabe2022",
+    type: "paper",
+    label: "Stability descriptors for oxide photocatalysts",
+    metadata: {
+      inLibrary: false,
+      year: 2022,
+      journal: "ACS Catalysis",
+      authors: ["H. Watanabe"],
+      tags: ["Photocatalysis", "Stability"],
+      description:
+        "Reference-only mock citation record. Not part of the local library and not externally verified.",
+    },
+  },
+];
+
+const graphEdges: GraphEdge[] = [
+  // Cortical hypothesis branches
+  { id: "ge_c1", from: "project:proj_cortical", to: "hyp_cortical_theta", type: "depends" },
+  { id: "ge_c2", from: "project:proj_cortical", to: "hyp_cortical_alpha", type: "depends" },
+  { id: "ge_c3", from: "project:proj_cortical", to: "hyp_cortical_pipeline", type: "depends" },
+  { id: "ge_c4", from: "hyp_cortical_theta", to: "exp_cortical_cohort_a", type: "branches" },
+  { id: "ge_c5", from: "hyp_cortical_theta", to: "exp_cortical_cohort_b", type: "branches" },
+  { id: "ge_c6", from: "hyp_cortical_alpha", to: "exp_cortical_alpha", type: "branches" },
+  { id: "ge_c7", from: "hyp_cortical_pipeline", to: "exp_cortical_multisite", type: "branches" },
+  { id: "ge_c8", from: "exp_cortical_cohort_a", to: "run_cortical_a_preprocess", type: "tests" },
+  { id: "ge_c9", from: "run_cortical_a_preprocess", to: "run_cortical_a_coupling", type: "depends" },
+  { id: "ge_c10", from: "exp_cortical_cohort_b", to: "run_cortical_b_preprocess", type: "tests" },
+  { id: "ge_c11", from: "run_cortical_b_preprocess", to: "run_cortical_b_coupling", type: "depends" },
+  { id: "ge_c12", from: "exp_cortical_alpha", to: "run_cortical_alpha_1", type: "tests" },
+  { id: "ge_c13", from: "exp_cortical_multisite", to: "run_cortical_multisite_1", type: "tests" },
+  { id: "ge_c14", from: "run_cortical_multisite_1", to: "run_cortical_multisite_2", type: "depends" },
+  { id: "ge_c15", from: "run_cortical_a_coupling", to: "hyp_cortical_conclusion", type: "derived_from" },
+  { id: "ge_c16", from: "run_cortical_b_coupling", to: "hyp_cortical_conclusion", type: "derived_from" },
+  { id: "ge_c17", from: "run_cortical_multisite_2", to: "hyp_cortical_pipeline", type: "derived_from" },
+  { id: "ge_c18", from: "paper:paper_1", to: "hyp_cortical_theta", type: "tests" },
+  { id: "ge_c19", from: "paper:paper_3", to: "hyp_cortical_pipeline", type: "tests" },
+  { id: "ge_c20", from: "paper:paper_2", to: "hyp_cortical_alpha", type: "tests" },
+  { id: "ge_c21", from: "notebook:nb_cortical_analysis", to: "hyp_cortical_theta", type: "links" },
+  { id: "ge_c22", from: "notebook:nb_cortical_analysis", to: "dataset:file_2", type: "links" },
+  { id: "ge_c23", from: "dataset:file_1", to: "run_cortical_a_preprocess", type: "links" },
+  { id: "ge_c24", from: "notebook:nb_reading_group", to: "paper:paper_2", type: "links" },
+  // Catalysts
+  { id: "ge_k1", from: "project:proj_catalysts", to: "hyp_catalysts_ni_doping", type: "depends" },
+  { id: "ge_k2", from: "project:proj_catalysts", to: "hyp_catalysts_stability", type: "depends" },
+  { id: "ge_k3", from: "hyp_catalysts_ni_doping", to: "exp_catalysts_batch4", type: "branches" },
+  { id: "ge_k4", from: "hyp_catalysts_stability", to: "exp_catalysts_stability", type: "branches" },
+  { id: "ge_k5", from: "exp_catalysts_batch4", to: "run_catalysts_batch4_synth", type: "tests" },
+  { id: "ge_k6", from: "run_catalysts_batch4_synth", to: "run_catalysts_batch4_xrd", type: "depends" },
+  { id: "ge_k7", from: "exp_catalysts_stability", to: "run_catalysts_stability_1", type: "tests" },
+  { id: "ge_k8", from: "run_catalysts_batch4_xrd", to: "hyp_catalysts_ni_doping", type: "derived_from" },
+  { id: "ge_k9", from: "run_catalysts_stability_1", to: "hyp_catalysts_stability", type: "derived_from" },
+  { id: "ge_k10", from: "notebook:nb_catalysts_synthesis", to: "hyp_catalysts_ni_doping", type: "links" },
+  { id: "ge_k11", from: "notebook:nb_catalysts_synthesis", to: "dataset:file_5", type: "links" },
+  { id: "ge_k12", from: "paper:paper_4", to: "hyp_catalysts_ni_doping", type: "tests" },
+  { id: "ge_k13", from: "paper:paper_5", to: "hyp_catalysts_stability", type: "tests" },
+  // Urban heat
+  { id: "ge_h1", from: "project:proj_heat", to: "hyp_heat_canopy", type: "depends" },
+  { id: "ge_h2", from: "project:proj_heat", to: "hyp_heat_calibration", type: "depends" },
+  { id: "ge_h3", from: "hyp_heat_canopy", to: "exp_heat_mosaic", type: "branches" },
+  { id: "ge_h4", from: "hyp_heat_calibration", to: "exp_heat_calibration", type: "branches" },
+  { id: "ge_h5", from: "exp_heat_mosaic", to: "run_heat_mosaic", type: "tests" },
+  { id: "ge_h6", from: "exp_heat_calibration", to: "run_heat_calibration", type: "tests" },
+  { id: "ge_h7", from: "run_heat_calibration", to: "run_heat_validation", type: "depends" },
+  { id: "ge_h8", from: "run_heat_mosaic", to: "hyp_heat_canopy", type: "derived_from" },
+  { id: "ge_h9", from: "run_heat_validation", to: "hyp_heat_calibration", type: "derived_from" },
+  { id: "ge_h10", from: "notebook:nb_heat_protocol", to: "dataset:file_7", type: "links" },
+  { id: "ge_h11", from: "paper:paper_6", to: "hyp_heat_canopy", type: "tests" },
+  { id: "ge_h12", from: "paper:paper_7", to: "hyp_heat_calibration", type: "tests" },
+  // Gut atlas
+  { id: "ge_g1", from: "project:proj_gut", to: "hyp_gut_atlas", type: "depends" },
+  { id: "ge_g2", from: "notebook:nb_gut_inventory", to: "hyp_gut_atlas", type: "links" },
+  { id: "ge_g3", from: "paper:paper_9", to: "hyp_gut_atlas", type: "tests" },
+  { id: "ge_g4", from: "paper:paper_8", to: "dataset:file_10", type: "links" },
+  // Decisions
+  { id: "ge_d1", from: "dec_ica_components", to: "notebook:nb_cortical_analysis", type: "links" },
+  { id: "ge_d2", from: "dec_ica_components", to: "hyp_cortical_theta", type: "links" },
+  { id: "ge_d3", from: "dec_batch4_ph", to: "notebook:nb_catalysts_synthesis", type: "links" },
+  { id: "ge_d4", from: "dec_batch4_ph", to: "hyp_catalysts_ni_doping", type: "links" },
+  { id: "ge_d5", from: "dec_heat_calibration", to: "notebook:nb_heat_protocol", type: "links" },
+  { id: "ge_d6", from: "dec_heat_calibration", to: "hyp_heat_calibration", type: "links" },
+  // Knowledge links across artifacts
+  { id: "ge_kg1", from: "notebook:nb_cortical_analysis", to: "paper:paper_1", type: "links" },
+  { id: "ge_kg2", from: "notebook:nb_catalysts_synthesis", to: "paper:paper_5", type: "links" },
+  { id: "ge_kg3", from: "notebook:nb_heat_protocol", to: "paper:paper_7", type: "links" },
+  { id: "ge_kg4", from: "notebook:nb_gut_inventory", to: "paper:paper_8", type: "links" },
+  { id: "ge_kg5", from: "paper:paper_4", to: "dataset:file_5", type: "links" },
+  { id: "ge_kg6", from: "paper:paper_6", to: "dataset:file_7", type: "links" },
+  { id: "ge_kg7", from: "paper:paper_1", to: "paper:paper_ext_nakamura2019", type: "cites" },
+  { id: "ge_kg8", from: "paper:paper_6", to: "paper:paper_ext_gomez2021", type: "cites" },
+];
+
+const citations: CitationLink[] = [
+  { id: "cite_1", from: "paper_2", to: "paper_1" },
+  { id: "cite_2", from: "paper_1", to: "paper_3" },
+  { id: "cite_3", from: "paper_3", to: "paper_1" },
+  { id: "cite_4", from: "paper_2", to: "paper_3" },
+  { id: "cite_5", from: "paper_4", to: "paper_5" },
+  { id: "cite_6", from: "paper_5", to: "paper_4" },
+  { id: "cite_7", from: "paper_6", to: "paper_7" },
+  { id: "cite_8", from: "paper_7", to: "paper_6" },
+  { id: "cite_9", from: "paper_9", to: "paper_8" },
+  { id: "cite_10", from: "paper_12", to: "paper_11" },
+  { id: "cite_11", from: "paper_11", to: "paper_12" },
+  { id: "cite_12", from: "paper_1", to: "paper_ext_nakamura2019" },
+  { id: "cite_13", from: "paper_2", to: "paper_ext_nakamura2019" },
+  { id: "cite_14", from: "paper_6", to: "paper_ext_gomez2021" },
+  { id: "cite_15", from: "paper_7", to: "paper_ext_gomez2021" },
+  { id: "cite_16", from: "paper_4", to: "paper_ext_watanabe2022" },
+  { id: "cite_17", from: "paper_5", to: "paper_ext_watanabe2022" },
+];
+
 const analytics: AnalyticsPoint[] = [
   { week: "Sep 29", tasks: 6, notes: 3, papers: 1 },
   { week: "Oct 6", tasks: 9, notes: 5, papers: 2 },
@@ -1722,9 +2407,41 @@ const analytics: AnalyticsPoint[] = [
   { week: "Nov 17", tasks: 9, notes: 6, papers: 2 },
 ];
 
+export function createSeedGraphNodes(): GraphNode[] {
+  return structuredClone(graphNodes);
+}
+
+export function createSeedGraphEdges(): GraphEdge[] {
+  return structuredClone(graphEdges);
+}
+
+export function createSeedCitations(): CitationLink[] {
+  return structuredClone(citations);
+}
+
+export function createSeedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  return { nodes: createSeedGraphNodes(), edges: createSeedGraphEdges() };
+}
+
+function seedTasks(): Task[] {
+  return structuredClone(tasks).map((task) => ({
+    ...task,
+    milestoneId: task.milestoneId ?? taskMilestoneSeed[task.id] ?? null,
+    parentTaskId: task.parentTaskId ?? null,
+  }));
+}
+
+export function createSeedTaskMilestoneAssignments(): Record<string, string> {
+  return structuredClone(taskMilestoneSeed);
+}
+
+export function createSeedSubtasks(): Task[] {
+  return seedTasks().filter((task) => Boolean(task.parentTaskId));
+}
+
 export function createSeedDatabase(): ResearchDatabase {
   return {
-    version: 2,
+    version: 3,
     user: currentUser,
     workspace: {
       id: "ws_northlight",
@@ -1748,7 +2465,7 @@ export function createSeedDatabase(): ResearchDatabase {
       },
     },
     projects: structuredClone(projects),
-    tasks: structuredClone(tasks),
+    tasks: seedTasks(),
     milestones: structuredClone(milestones),
     notebooks: structuredClone(notebooks),
     papers: structuredClone(papers),
@@ -1758,5 +2475,8 @@ export function createSeedDatabase(): ResearchDatabase {
     researchLog: createSeedResearchLog(),
     notifications: [...structuredClone(notifications), ...createSeedReviewNotifications()],
     analytics: structuredClone(analytics),
+    graphNodes: createSeedGraphNodes(),
+    graphEdges: createSeedGraphEdges(),
+    citations: createSeedCitations(),
   };
 }

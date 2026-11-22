@@ -2,6 +2,8 @@ import type {
   ActivityCategory,
   ArtifactType,
   FileKind,
+  GraphEdgeType,
+  GraphNodeType,
   MilestoneStatus,
   NotificationKind,
   PaperReadStatus,
@@ -128,7 +130,122 @@ export const researchModeMeta: Record<
 
 export const researchModes = Object.keys(researchModeMeta) as ResearchMode[];
 
-export const artifactTypeMeta: Record<
+export const graphNodeTypeMeta: Record<
+  GraphNodeType,
+  { label: string; plural: string; description: string; color: string; chip: string }
+> = {
+  project: {
+    label: "Project",
+    plural: "Projects",
+    description: "A research project",
+    color: "#0D9488",
+    chip: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300",
+  },
+  experiment: {
+    label: "Experiment",
+    plural: "Experiments",
+    description: "A planned or running study",
+    color: "#6366F1",
+    chip: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300",
+  },
+  run: {
+    label: "Run",
+    plural: "Runs",
+    description: "An analysis or acquisition run",
+    color: "#0284C7",
+    chip: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+  },
+  hypothesis: {
+    label: "Hypothesis",
+    plural: "Hypotheses",
+    description: "A testable claim or conclusion",
+    color: "#D97706",
+    chip: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  },
+  paper: {
+    label: "Paper",
+    plural: "Papers",
+    description: "A library citation",
+    color: "#7C3AED",
+    chip: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+  },
+  notebook: {
+    label: "Notebook",
+    plural: "Notebooks",
+    description: "A research notebook",
+    color: "#0F766E",
+    chip: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  },
+  dataset: {
+    label: "Dataset",
+    plural: "Datasets",
+    description: "A dataset or data file",
+    color: "#475569",
+    chip: "bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-300",
+  },
+  decision: {
+    label: "Decision",
+    plural: "Decisions",
+    description: "A recorded project decision",
+    color: "#BE123C",
+    chip: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+  },
+};
+
+export const graphNodeTypes = Object.keys(graphNodeTypeMeta) as GraphNodeType[];
+
+export const graphEdgeTypeMeta: Record<
+  GraphEdgeType,
+  { label: string; dashed: boolean; color: string; description: string }
+> = {
+  depends: {
+    label: "Depends on",
+    dashed: false,
+    color: "#64748B",
+    description: "Solid arrow — the source depends on the target",
+  },
+  derived_from: {
+    label: "Derived from",
+    dashed: true,
+    color: "#0D9488",
+    description: "Dashed arrow — the source was derived from the target",
+  },
+  cites: {
+    label: "Cites",
+    dashed: true,
+    color: "#7C3AED",
+    description: "Dashed arrow — a citation relationship",
+  },
+  tests: {
+    label: "Tests",
+    dashed: false,
+    color: "#4F46E5",
+    description: "Solid arrow — the source tests the target",
+  },
+  links: {
+    label: "Links",
+    dashed: true,
+    color: "#0891B2",
+    description: "Dotted relationship between artifacts",
+  },
+  branches: {
+    label: "Branches",
+    dashed: false,
+    color: "#D97706",
+    description: "Solid arrow — the source branches into the target",
+  },
+};
+
+export const graphEdgeTypes = Object.keys(graphEdgeTypeMeta) as GraphEdgeType[];
+
+export const graphLayoutMeta = {
+  "dagre-lr": { label: "Left to right", description: "Layered DAG, left to right" },
+  "dagre-tb": { label: "Top to bottom", description: "Layered DAG, top to bottom" },
+  radial: { label: "Radial", description: "Concentric rings by depth" },
+  manual: { label: "Manual", description: "Stored node positions" },
+} as const;
+
+export type GraphLayout = keyof typeof graphLayoutMeta;export const artifactTypeMeta: Record<
   ArtifactType,
   { label: string; plural: string }
 > = {

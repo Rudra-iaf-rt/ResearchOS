@@ -43,6 +43,10 @@ export interface Task {
   createdAt: ISODateString;
   updatedAt: ISODateString;
   completedAt: ISODateString | null;
+  /** Project milestone this task rolls up to (Phase 2 project tree). */
+  milestoneId?: string | null;
+  /** Parent task when this record is a subtask (Phase 2 project tree). */
+  parentTaskId?: string | null;
 }
 
 export type MilestoneStatus = "upcoming" | "in-progress" | "at-risk" | "completed";
@@ -125,6 +129,8 @@ export interface Folder {
   name: string;
   parentId: string | null;
   createdAt: ISODateString;
+  /** Optional project association used by the Phase 2 file tree. */
+  projectId?: string | null;
 }
 
 export type ActivityCategory =
@@ -157,6 +163,78 @@ export interface ArtifactRef {
   type: ArtifactType;
   id: string;
   label: string;
+}
+
+/** Node kinds rendered by the Phase 2 graph views. */
+export type GraphNodeType =
+  | "project"
+  | "experiment"
+  | "run"
+  | "hypothesis"
+  | "paper"
+  | "notebook"
+  | "dataset"
+  | "decision";
+
+/** Directional relationship kinds between graph nodes. */
+export type GraphEdgeType =
+  | "depends"
+  | "derived_from"
+  | "cites"
+  | "tests"
+  | "links"
+  | "branches";
+
+export interface GraphNodeMetadata {
+  /** Optional sub-kind, e.g. `conclusion` for a hypothesis node. */
+  kind?: string;
+  description?: string;
+  owner?: string;
+  date?: string;
+  artifactType?: ArtifactType;
+  artifactId?: string;
+  href?: string;
+  projectId?: string | null;
+  tags?: string[];
+  metrics?: Array<{ label: string; value: string }>;
+  /** Manual layout coordinates persisted with a node. */
+  position?: { x: number; y: number };
+  /** External citation nodes are not part of the local library. */
+  inLibrary?: boolean;
+  year?: number;
+  journal?: string;
+  authors?: string[];
+  /** Limited Phase 2/3 hand-off action, resolved by the owning page. */
+  action?: "open-experiment" | "open-run-logs" | "open-artifact";
+  [key: string]: unknown;
+}
+
+export interface GraphNode {
+  id: string;
+  type: GraphNodeType;
+  label: string;
+  status?: string;
+  parentId?: string;
+  metadata?: GraphNodeMetadata;
+}
+
+export interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: GraphEdgeType;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+/** A citation edge between two library papers (mock, not externally verified). */
+export interface CitationLink {
+  id: string;
+  from: string;
+  to: string;
 }
 
 export interface ResearchLogEntry {
@@ -293,6 +371,11 @@ export interface ResearchDatabase {
   researchLog: ResearchLogEntry[];
   notifications: AppNotification[];
   analytics: AnalyticsPoint[];
+  /** Phase 2 persisted graph records (experiments, runs, hypotheses, links). */
+  graphNodes: GraphNode[];
+  graphEdges: GraphEdge[];
+  /** Mock citation relationships between library papers. */
+  citations: CitationLink[];
 }
 
 export interface ProjectSummary {

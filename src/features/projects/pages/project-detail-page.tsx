@@ -14,7 +14,9 @@ import {
   FolderOpen,
   Library,
   Link2,
+  ListTree,
   MoreHorizontal,
+  Network,
   NotebookPen,
   Pencil,
   Plus,
@@ -348,6 +350,16 @@ export function ProjectDetailPage() {
                 <DropdownMenuItem asChild>
                   <Link to={`/app/projects/${project.id}?tab=activity`}>
                     <CalendarDays /> View activity
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`/app/projects/${project.id}/graph`}>
+                    <Network /> Research graph
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`/app/projects/${project.id}/tree`}>
+                    <ListTree /> Project tree
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem

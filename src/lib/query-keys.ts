@@ -21,4 +21,8 @@ export const queryKeys = {
   artifacts: ["artifacts"] as const,
   researchLog: ["research-log"] as const,
   feed: ["feed"] as const,
+  graph: ["graph"] as const,
+  projectGraph: (id: string) => ["graph", "project", id] as const,
+  knowledgeGraph: ["graph", "knowledge"] as const,
+  citationGraph: (seedId: string) => ["graph", "citations", seedId] as const,
 };
