@@ -245,7 +245,9 @@ export const graphLayoutMeta = {
   manual: { label: "Manual", description: "Stored node positions" },
 } as const;
 
-export type GraphLayout = keyof typeof graphLayoutMeta;export const artifactTypeMeta: Record<
+export type GraphLayout = keyof typeof graphLayoutMeta;
+
+export const artifactTypeMeta: Record<
   ArtifactType,
   { label: string; plural: string }
 > = {

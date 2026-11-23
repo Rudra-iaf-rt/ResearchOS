@@ -1,8 +1,8 @@
 # ResearchOS — Architecture
 
-Last updated: **November 20, 2026**
+Last updated: **November 23, 2026**
 
-Phase 1 adds a daily research layer on top of the Stage 1 workspace without changing its architecture or design language. This document describes how the frontend is organized, how data flows, and where future backend/authentication work plugs in.
+Phase 1 adds a daily research layer on top of the Stage 1 workspace. Phase 2 adds a shared knowledge-graph layer — graph canvas, project DAG, project tree, notebook outline, file tree, citation graph, and the workspace knowledge graph — without changing the existing architecture or design language. This document describes how the frontend is organized, how data flows, and where future backend/authentication work plugs in.
 
 ---
 
@@ -17,11 +17,14 @@ Phase 1 adds a daily research layer on top of the Stage 1 workspace without chan
 | Forms | React Hook Form + Zod |
 | Styling | Tailwind CSS with semantic tokens, Radix UI primitives, Lucide icons |
 | Charts | Recharts |
+| Graph canvas | React Flow (`@xyflow/react`) + dagre layout |
+| Graph export | `html-to-image` (`toSvg`) + canvas |
+| Tree view | `react-arborist` |
 | Feedback | Sonner toasts, skeleton/empty/error states |
 | Tests | Vitest + Testing Library (jsdom) |
 | Persistence (current) | Versioned localStorage demo database behind a mock provider |
 
-There is no backend in Phase 1 and no authentication. The app must not be deployed publicly in this state.
+There is no backend and no authentication in Phase 2. The app must not be deployed publicly in this state.
 
 ---
 
@@ -42,6 +45,7 @@ src/
 │  ├─ dashboard/            Today dashboard API + page
 │  ├─ feed/                 Research Feed API, helpers, item, day sheet, page
 │  ├─ files/                File library
+│  ├─ graph/                Knowledge graph: canvas, layouts, DAG/tree/citation pages, outline, file tree
 │  ├─ library/              Research papers
 │  ├─ milestones/           Project milestones
 │  ├─ notebooks/            Notebooks and editor
@@ -77,6 +81,19 @@ features/<name>/
 ```
 
 Pages never import seed arrays. They call feature APIs through TanStack Query and render derived data.
+
+The `graph` feature additionally keeps pure, testable logic under `lib/`:
+
+| Module | Responsibility |
+| --- | --- |
+| `validation.ts` | Duplicate/dangling/self-link detection, visible-edge pruning, related-node sets |
+| `layouts.ts` | dagre LR/TB, radial rings, manual coordinates/grid |
+| `filters.ts` | Node-type/status/run filters and citation filters |
+| `citation.ts` | Undirected radius BFS, year/tag facets |
+| `outline.ts` | TipTap heading extraction, nesting, section moves, scroll |
+| `task-tree.ts` | Project → milestone → task → subtask tree and re-parent validation |
+| `file-tree.ts` | Folder/file tree, roll-ups, move validation, breadcrumbs |
+| `stress.ts` | Deterministic 200-node layout fixture |
 
 ---
 
@@ -121,9 +138,12 @@ Public routes stay eager; app routes are lazy chunks inside `ProtectedRoute` →
 | `/app/feed` | Research Feed |
 | `/app/notifications` | Notifications inbox (`?tab=`) |
 | `/app/projects`, `/app/projects/:projectId` | Projects |
+| `/app/projects/:projectId/graph` | Project hypothesis → experiment → run DAG |
+| `/app/projects/:projectId/tree` | Project milestone/task tree |
+| `/app/knowledge` | Workspace knowledge graph (`?focus=`) |
 | `/app/tasks` | Tasks and milestones |
-| `/app/notebooks`, `/app/notebooks/:notebookId` | Notebooks |
-| `/app/library` | Research Library (`?paper=`) |
+| `/app/notebooks`, `/app/notebooks/:notebookId` | Notebooks (editor includes the outline rail) |
+| `/app/library` | Research Library (`?paper=`, `?tab=graph`) |
 | `/app/files` | Files |
 | `/app/activity` | Workspace activity |
 | `/app/settings` | Settings |
@@ -220,6 +240,58 @@ interface ResearchFeedItem {
 
 `ActivityCategory` gains `research`. `NotificationKind` gains `review`. `ActivityEvent` gains optional `workspaceId`, `mode`, `artifact`, and `researchLogId`.
 
+Phase 2 adds:
+
+```ts
+type GraphNodeType =
+  | "project" | "experiment" | "run" | "hypothesis"
+  | "paper" | "notebook" | "dataset" | "decision";
+
+type GraphEdgeType =
+  | "depends" | "derived_from" | "cites"
+  | "tests" | "links" | "branches";
+
+interface GraphNode {
+  id: string;
+  type: GraphNodeType;
+  label: string;
+  status?: string;
+  parentId?: string;
+  metadata?: {
+    kind?: string;              // e.g. "conclusion"
+    description?: string;
+    artifactType?: ArtifactType;
+    artifactId?: string;
+    href?: string;
+    projectId?: string | null;
+    tags?: string[];
+    metrics?: Array<{ label: string; value: string }>;
+    position?: { x: number; y: number };
+    inLibrary?: boolean;        // false for external mock citations
+    year?: number;
+    action?: "open-experiment" | "open-run-logs" | "open-artifact";
+    [key: string]: unknown;
+  };
+}
+
+interface GraphEdge { id: string; from: string; to: string; type: GraphEdgeType }
+
+interface CitationLink { id: string; from: string; to: string }
+```
+
+`Task` gains optional `milestoneId` and `parentTaskId` (one subtask level). `Folder` gains optional `projectId`, so folders and their descendants can be moved to a project.
+
+### Artifact node ID convention
+
+| Source | Node ID |
+| --- | --- |
+| Project | `project:<projectId>` |
+| Paper | `paper:<paperId>` |
+| Notebook | `notebook:<notebookId>` |
+| Dataset (file) | `dataset:<fileId>` |
+
+Graph-only seeded records use plain IDs. The convention lets materialized artifact nodes and seeded relationships share one ID space.
+
 ---
 
 ## 7. Data flow
@@ -280,6 +352,53 @@ The feed therefore shows each logged work item once, while still including Stage
 
 Dashboard and Research Feed use the same helpers, so streak values agree.
 
+### Graph materialization and views
+
+```text
+db.projects/papers/notebooks/files → artifact nodes
+db.graphNodes/graphEdges           → seeded relationships
+                    ↓
+             materialize(db)
+                    ↓
+   validate + prune invalid edges
+                    ↓
+  project / knowledge / citation view
+                    ↓
+        GraphCanvas → computeLayout → React Flow
+```
+
+- **Project DAG** includes the project, its nodes, and one hop of linked paper artifacts.
+- **Knowledge graph** includes only nodes touched by `links` edges plus their owning project nodes; node types outside project/notebook/paper/dataset/hypothesis/decision are excluded.
+- **Citation graph** builds a paper-only universe from `citations` edges and seeded citation edges, then applies an undirected radius-1/2 BFS and local filters.
+
+`GraphCanvas` memoizes layout and flow data. Positions change only when `nodes`, `edges`, or `layout` change; focus changes only alter card/edge props.
+
+### Focus URL state
+
+```text
+?focus=<nodeId>
+  → useGraphFocus(nodeIds)
+      → valid id   → selected node + related-node dimming
+      → invalid id → replace history without the parameter
+  → user selects a different node → push history
+  → user closes details / clears focus → remove parameter
+  → browser back/forward → selection restored from history
+```
+
+All three graph views use the same hook, so focus is shareable and survives reloads.
+
+### Project tree mutations
+
+`buildProjectTaskTree` composes project → unassigned/milestone groups → tasks → subtasks and tolerates cycles. Inline rename calls `tasksApi.rename`; drag re-parent calls `tasksApi.reparent`, which validates self, descendants, cross-project targets, and a second subtask level before writing. A rejected move leaves the stored task unchanged.
+
+### File tree mutations
+
+`buildFileTree` rolls file sizes/counts up through descendants and keeps orphans visible. Drag/drop calls `filesApi.moveFile` or `moveFolder`; `canMoveFolder` rejects self/descendant targets both in the UI and in the API. Context-menu actions rename, move-to-project (folder descendants included), or delete a folder while lifting its contents into the parent.
+
+### Notebook outline
+
+The editor exposes its live TipTap instance through `onEditorReady`. `NotebookOutline` re-extracts headings from the serialized document on change, renders a nested collapsible tree, scrolls to headings in the live editor, and reorders sections by rewriting only the moved section’s HTML span. Autosave then persists the document, so formatting and non-heading content are preserved.
+
 ---
 
 ## 8. Persistence and migration
@@ -287,17 +406,18 @@ Dashboard and Research Feed use the same helpers, so streak values agree.
 | Item | Value |
 | --- | --- |
 | Storage key | `researchos.demo.db.v1` (kept for compatibility) |
-| Current version | `2` |
+| Current version | `3` |
 | Session key | `researchos.session.v1` |
 | UI state key | `researchos.ui.v1` |
 
 `loadDatabase()`:
 
 1. If storage is unavailable, return an in-memory seed.
-2. If no record exists, seed and persist version 2.
+2. If no record exists, seed and persist version 3.
 3. If the stored version is not a number or is newer than the app, reseed.
-4. If version 1, add `researchLog` (seed entries) and review notifications if absent, then set version 2 and persist.
-5. Otherwise return parsed data.
+4. If version 1, add `researchLog` (seed entries) and review notifications if absent, then set version 2.
+5. If version 2, add `graphNodes`, `graphEdges`, and `citations` if absent, then set version 3.
+6. Otherwise return parsed data.
 
 `mutateDb()` always loads, applies the updater, and saves. A full localStorage quota is swallowed so the in-memory session continues; the next successful mutation persists again.
 
@@ -316,6 +436,8 @@ Dashboard and Research Feed use the same helpers, so streak values agree.
 
 Recent artifacts are recorded when a project detail, notebook editor, or library paper is opened. They power Today's "Continue working" with a fallback to recent notebooks/papers.
 
+Graph focus is **URL state**, not a Zustand store: `useGraphFocus` reads/writes `?focus=` so selections are shareable and survive reloads. Graph filters and layout are component state scoped to each view.
+
 ---
 
 ## 10. UI composition
@@ -326,9 +448,23 @@ Recent artifacts are recorded when a project detail, notebook editor, or library
 - **Quick Capture:** the `C` key opens the shared `"log"` create dialog unless the user is typing, using a modifier, or a dialog is already open.
 - **Notifications:** header popover and inbox share `notificationKindMeta`; review items use a rose tone.
 - **Charts:** Recharts, sized inside fixed-height containers, using token-derived colors.
+- **Graph canvas:** shared `GraphCanvas` with custom node cards, arrow markers per edge type, dashed `cites`/`derived_from`/`links`, hover-only edge labels, legend, filter slot, minimap, zoom/fit, and a layout selector. Unrelated nodes dim to roughly 40% when a focus node is active.
+- **Graph details:** `NodeDetailPanel` is shared by every graph view and closes on Escape.
+- **Project tree:** `react-arborist` rows with expand/collapse, inline rename, drag re-parent, status pills, and a details panel.
+- **Notebook outline:** right-rail, collapsible, nested heading tree with drag reorder; hidden below `lg`.
+- **File tree:** left-rail folder/file tree with drag/drop, context menus, size roll-ups, and project linking.
+- **Citation graph:** a Library tab with seed selector, radius, year range, library-only and topic filters, and the existing paper sheet as the detail destination.
 - **Empty/loading/error:** skeleton placeholders and contextual `EmptyState` actions; no dead-end screens.
 
-Design tokens and existing shared components are reused; Phase 1 introduces no parallel design system.
+Design tokens and existing shared components are reused; Phase 2 introduces no parallel design system.
+
+### Accessibility
+
+- Graph nodes are keyboard-reachable `role="button"` elements with labels combining node label, type, status, and owner.
+- Enter/Space selects a node; Tab reaches nodes and canvas controls.
+- Focus rings are visible and do not rely on color alone; type is communicated with an icon and text label.
+- Escape closes the node details, snapshot dialog, rename dialog, and filter popover; each restores focus to its trigger.
+- Legends label edge direction and dashed meaning in text, not just color.
 
 ---
 
@@ -336,8 +472,9 @@ Design tokens and existing shared components are reused; Phase 1 introduces no p
 
 - The demo session is client-side and is not authentication.
 - Identity permissions are enforced in APIs, but a malicious client could edit localStorage directly; this is acceptable only for the local prototype.
-- No secrets, credentials, or network calls exist in Phase 1.
+- No secrets, credentials, or network calls exist in Phase 2.
 - The sync indicator is a visual simulator and must not be presented as real durability.
+- Citation edges and external paper nodes are mock fixtures. The UI states they are not externally verified, and they must not be cited as real bibliographic data.
 
 ---
 
@@ -360,6 +497,9 @@ Design tokens and existing shared components are reused; Phase 1 introduces no p
 
 ### Feature growth
 
+- Add graph authoring: create/edit nodes and edges, link artifacts from notebooks/papers, and persist positions.
+- Replace placeholder project-DAG actions with experiment/run-log workflows.
+- Add verified citation import (DOI/Crossref/OpenAlex) and real provenance.
 - Add notification generation inside domain mutations.
 - Add review submission/approval transitions.
 - Add saved feed filters and deeper search.

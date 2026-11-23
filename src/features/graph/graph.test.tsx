@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
@@ -28,6 +28,7 @@ import {
 } from "./lib/validation";
 import { filesApi } from "@/features/files/api";
 import { tasksApi } from "@/features/tasks/api";
+import { NodeDetailPanel } from "./components/node-detail-panel";
 
 const node = (
   id: string,
@@ -439,6 +440,75 @@ describe("file tree helpers", () => {
 
     const moved = await filesApi.moveFolder("folder_eeg_raw", null);
     expect(moved.parentId).toBeNull();
+  });
+});
+
+describe("node detail panel", () => {
+  const hypothesis = node("h1", "hypothesis", {
+    label: "Alpha predicts capacity",
+    status: "supported",
+    metadata: {
+      kind: "conclusion",
+      description: "Alpha power predicts working-memory capacity.",
+      owner: "Maya Chen",
+      tags: ["EEG"],
+      href: "/app/projects/p1",
+      metrics: [{ label: "Confidence", value: "High" }],
+    },
+  });
+  const run = node("r1", "run", { label: "run/7", status: "completed" });
+  const connections = [edge("e1", "r1", "h1", "tests")];
+
+  it("renders the selected node, metadata, links, and related nodes", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+
+    render(
+      <NodeDetailPanel
+        node={hypothesis}
+        nodes={[hypothesis, run]}
+        edges={connections}
+        onClose={onClose}
+        onSelect={onSelect}
+      />,
+    );
+
+    expect(
+      screen.getByRole("complementary", { name: "Details for Alpha predicts capacity" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Hypothesis · Conclusion")).toBeInTheDocument();
+    expect(screen.getByText("supported")).toBeInTheDocument();
+    expect(screen.getByText("Confidence")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open artifact/i })).toHaveAttribute(
+      "href",
+      "/app/projects/p1",
+    );
+
+    await user.click(screen.getByRole("button", { name: /run\/7/ }));
+    expect(onSelect).toHaveBeenCalledWith("r1");
+
+    await user.click(screen.getByRole("button", { name: "Close node details" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes with Escape and renders an empty relationship state", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <NodeDetailPanel
+        node={run}
+        nodes={[run]}
+        edges={[]}
+        onClose={onClose}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No connections in this view yet.")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

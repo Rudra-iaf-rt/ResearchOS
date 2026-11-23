@@ -1,8 +1,8 @@
 # ResearchOS — API Documentation
 
-Last updated: **November 20, 2026**
+Last updated: **November 23, 2026**
 
-Phase 1 APIs are Promise-based frontend service modules backed by the local demo database. They are intentionally shaped so a FastAPI client can replace the mock transport without changing pages.
+Phase 1 and Phase 2 APIs are Promise-based frontend service modules backed by the local demo database. They are intentionally shaped so a FastAPI client can replace the mock transport without changing pages.
 
 ---
 
@@ -14,7 +14,7 @@ Phase 1 APIs are Promise-based frontend service modules backed by the local demo
 | Transport | `readDb` / `mutateDb` from `src/services/mock/client.ts` |
 | Return type | `Promise<T>` for reads and writes |
 | Latency | 90 ms in development, 0 ms in tests |
-| Persistence | `localStorage` key `researchos.demo.db.v1`, version 2 |
+| Persistence | `localStorage` key `researchos.demo.db.v1`, version 3 |
 | Identity | Supplied by `identityProvider`, never by page code |
 | Permissions | Asserted inside mutating APIs |
 | Errors | `Error` with a user-readable message; pages surface a toast or error state |
@@ -43,6 +43,10 @@ queryKeys = {
   artifacts,
   researchLog,    // ["research-log"]
   feed,           // ["feed"]
+  graph,          // ["graph"]
+  projectGraph,   // ["graph", "project", id]
+  knowledgeGraph, // ["graph", "knowledge"]
+  citationGraph,  // ["graph", "citations", seedId]
 }
 ```
 
@@ -242,7 +246,108 @@ Sources: projects, notebooks, papers, files, tasks, milestones.
 
 ---
 
-## 6. Workspace API
+## 6. Graph API
+
+`src/features/graph/api.ts`
+
+All methods are Promise-based reads through `readDb` (90 ms dev, 0 ms tests). They return plain graph payloads; pages never read graph arrays from storage.
+
+### `graphApi.project(projectId): Promise<ProjectGraphPayload>`
+
+```ts
+interface ProjectGraphPayload extends GraphView {
+  projectId: string;
+  projectTitle: string;
+}
+```
+
+- Throws `Project not found` when the project ID is unknown.
+- Includes the project node, every node whose `metadata.projectId` matches, and one hop of linked paper nodes.
+- Prunes edges that reference nodes outside the payload.
+- Sorted by node type (project → hypothesis → experiment → run → decision → notebook → paper → dataset), then label.
+
+### `graphApi.knowledge(): Promise<KnowledgeGraphPayload>`
+
+```ts
+interface KnowledgeGraphPayload extends GraphView { empty: boolean }
+```
+
+- Selects nodes touched by at least one `links` edge, restricted to project/notebook/paper/dataset/hypothesis/decision.
+- Adds the owning project node for each linked artifact so project filters work.
+- Returns `{ nodes: [], edges: [], empty: true }` when no artifact links exist.
+- Page empty copy: “Link artifacts from any notebook or paper to start building your knowledge graph.”
+
+### `graphApi.citations(seedId, radius = 1): Promise<CitationGraphPayload>`
+
+```ts
+interface CitationGraphPayload extends GraphView {
+  seedId: string;          // normalized node id
+  seedPaper: GraphNode | null;
+}
+```
+
+- Builds the paper-only citation universe (seeded `citations` plus seeded citation edges).
+- Accepts a raw paper ID or a `paper:<id>` node ID and normalizes it.
+- Throws `Seed paper not found` for unknown seeds.
+- Applies an undirected BFS (`radius` 1–2) and prunes edges outside the neighbourhood.
+
+### `graphApi.citationUniverse(): Promise<CitationGraphPayload>`
+
+Returns the full paper universe and edge list for local filtering. `seedId` defaults to the first library paper (`metadata.inLibrary !== false`).
+
+### `graphApi.validate(): Promise<GraphValidationResult>`
+
+```ts
+interface GraphValidationResult {
+  valid: boolean;
+  issues: Array<{ edgeId?: string; nodeId?: string; message: string }>;
+}
+```
+
+Checks duplicate node IDs, edges referencing missing nodes, and self-links.
+
+### Pure helpers
+
+| Function | Purpose |
+| --- | --- |
+| `validateGraph(nodes, edges)` | Full structural validation |
+| `filterValidEdges(nodes, edges)` | Keep only edges whose endpoints exist and differ |
+| `relatedNodeIds(focusId, edges)` | Focus node plus direct neighbours (used for dimming) |
+| `computeLayout(nodes, edges, layout)` | dagre LR/TB, radial rings, or stored/grid manual positions |
+| `filterGraph(graph, filters)` | Node types, statuses, run visibility, search; prunes edges |
+| `filterCitationGraph(graph, seedId, filters)` | Library/year/tag/radius filtering while keeping the seed visible |
+| `citationNeighborhood(seedId, edges, radius)` | Undirected BFS |
+| `citationYearRange(nodes)` / `citationTagSet(nodes)` | Facet ranges |
+| `extractOutline(html)` | TipTap HTML → ordered headings |
+| `buildOutlineTree(headings)` | Nested outline tree |
+| `moveOutlineSection(html, sourceId, targetId, position)` | Move a heading’s full section without touching other formatting |
+| `buildProjectTaskTree(project, milestones, tasks)` | Project → milestone → task → subtask |
+| `validateTaskReparent(tasks, taskId, parentTaskId, projectId)` | Reject self/descendant/cross-project/second-level parents |
+| `buildFileTree(folders, files)` | Tree with rolled-up sizes/counts and visible orphans |
+| `canMoveFolder(folders, id, parentId)` | Reject self/descendant targets |
+| `folderDescendantIds(folders, id)` | Descendant set for move validation |
+| `buildStressGraph(count)` | Deterministic stress fixture (used in tests) |
+
+### Mutation APIs used by Phase 2 views
+
+These extend existing feature APIs; they follow the same `mutateDb` + activity-event pattern.
+
+| Method | Behavior |
+| --- | --- |
+| `tasksApi.rename(id, title)` | Trims the title, rejects empty, updates `updatedAt` |
+| `tasksApi.reparent(id, { parentTaskId?, milestoneId? })` | Rejects self/descendant/cross-project/second-level parents; inherits the parent’s milestone; writes a `reorganized a task` activity |
+| `milestonesApi.rename(id, title)` | Trims the title, rejects empty |
+| `milestonesApi.remove(id)` | Deletes the milestone, keeps tasks and sets `milestoneId: null` |
+| `filesApi.moveFile(id, folderId)` | Rejects a missing target folder |
+| `filesApi.moveFolder(id, parentId)` | Rejects self/descendant targets with `A folder cannot move into itself or one of its descendants.` |
+| `filesApi.moveFileToProject(id, projectId)` | Validates the project, updates the file, writes an activity event |
+| `filesApi.moveFolderToProject(id, projectId)` | Validates the project, updates the folder and all descendants/files, writes an activity event |
+
+Failed validations throw before any write, so the stored record is preserved.
+
+---
+
+## 7. Workspace API
 
 `src/features/workspace/api.ts`
 
@@ -254,7 +359,7 @@ Returns the workspace member directory derived from people referenced by databas
 
 ---
 
-## 7. Identity API
+## 8. Identity API
 
 `src/services/identity/index.ts`
 
@@ -304,7 +409,7 @@ Permission values: `artifact:read`, `artifact:write`, `artifact:delete`, `log:wr
 
 ---
 
-## 8. Dashboard API
+## 9. Dashboard API
 
 `src/features/dashboard/api.ts`
 
@@ -327,29 +432,42 @@ Reads the database once and returns:
 
 ---
 
-## 9. Database schema (v2)
+## 10. Database schema (v3)
 
 `src/services/mock/storage.ts`, `src/services/mock/seed.ts`, `src/types/index.ts`
 
 ```ts
 interface ResearchDatabase {
-  version: 2;
+  version: 3;
   user: UserProfile;
   workspace: Workspace;
   preferences: AppPreferences;
   projects: Project[];
-  tasks: Task[];
+  tasks: Task[];                     // + milestoneId?, parentTaskId?
   milestones: Milestone[];
   notebooks: Notebook[];
   papers: Paper[];
   files: ResearchFile[];
-  folders: Folder[];
+  folders: Folder[];                 // + projectId?
   activity: ActivityEvent[];
   researchLog: ResearchLogEntry[];   // added in v2
+  graphNodes: GraphNode[];           // added in v3
+  graphEdges: GraphEdge[];           // added in v3
+  citations: CitationLink[];         // added in v3
   notifications: AppNotification[];
   analytics: AnalyticsPoint[];
 }
 ```
+
+### GraphNode / GraphEdge / CitationLink
+
+| Type | Fields |
+| --- | --- |
+| `GraphNode` | `id`, `type` (project/experiment/run/hypothesis/paper/notebook/dataset/decision), `label`, optional `status`, `parentId`, `metadata` |
+| `GraphEdge` | `id`, `from`, `to`, `type` (depends/derived_from/cites/tests/links/branches) |
+| `CitationLink` | `id`, `from`, `to` — undirected mock citation edge |
+
+Artifact node IDs are `project:<id>`, `paper:<id>`, `notebook:<id>`, and `dataset:<fileId>`. Seeded graph-only nodes use plain IDs. `metadata.inLibrary === false` marks external citation nodes that are not part of the local library.
 
 ### ResearchLogEntry
 
@@ -383,16 +501,17 @@ Events are capped at 120 entries (`logActivity`).
 
 | From | To | Behavior |
 | --- | --- | --- |
-| none | 2 | Full seed |
-| 1 | 2 | Add seeded `researchLog` if absent, append review notifications if none, preserve all existing collections |
-| > 2 | 2 | Reseed (forward-incompatible database) |
-| invalid JSON | 2 | Reseed |
+| none | 3 | Full seed |
+| 1 | 3 | Add seeded `researchLog` + review notifications, then v2 → v3 graph additions; preserve all existing collections |
+| 2 | 3 | Add seeded `graphNodes`, `graphEdges`, and `citations` if absent; preserve all existing collections |
+| > 3 | 3 | Reseed (forward-incompatible database) |
+| invalid JSON | 3 | Reseed |
 
-Storage key intentionally remains `researchos.demo.db.v1` so upgrades find Stage 1 data.
+Storage key intentionally remains `researchos.demo.db.v1` so upgrades find Stage 1 data. Graph collections are additive; no Phase 1 records are replaced.
 
 ---
 
-## 10. Client-side state APIs
+## 11. Client-side state APIs
 
 ### UI store (`src/store/ui-store.ts`)
 
@@ -417,7 +536,7 @@ No network request is made.
 
 ---
 
-## 11. Future REST mapping
+## 12. Future REST mapping
 
 When FastAPI is introduced, each service method maps to a conventional endpoint. The frontend contract should remain stable:
 
@@ -432,6 +551,10 @@ When FastAPI is introduced, each service method maps to a conventional endpoint.
 | `notificationsApi.markRead` | `PATCH /api/notifications/:id` |
 | `notificationsApi.markAllRead` | `POST /api/workspaces/:workspaceId/notifications/read-all` |
 | `artifactsApi.list` | `GET /api/workspaces/:workspaceId/artifacts` |
+| `graphApi.project` | `GET /api/projects/:projectId/graph` |
+| `graphApi.knowledge` | `GET /api/workspaces/:workspaceId/knowledge-graph` |
+| `graphApi.citations` | `GET /api/papers/:paperId/citations?radius=1` |
+| `graphApi.citationUniverse` | `GET /api/workspaces/:workspaceId/citations` |
 | `workspaceApi.members` | `GET /api/workspaces/:workspaceId/members` |
 | `dashboardApi.get` | `GET /api/workspaces/:workspaceId/dashboard` |
 

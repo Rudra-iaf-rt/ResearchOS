@@ -152,6 +152,10 @@ export function CitationGraphTab({ onOpenPaper }: CitationGraphTabProps) {
     onlyLibrary ||
     tag !== "all";
 
+  // The seed stays visible by design, so an empty filter result is "only the
+  // seed remains". Show the empty state instead of a lone disconnected card.
+  const showEmpty = isFiltered && filtered.nodes.length <= 1;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card p-3 shadow-subtle">
@@ -279,8 +283,8 @@ export function CitationGraphTab({ onOpenPaper }: CitationGraphTabProps) {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <GraphCanvas
-          nodes={filtered.nodes}
-          edges={filtered.edges}
+          nodes={showEmpty ? [] : filtered.nodes}
+          edges={showEmpty ? [] : filtered.edges}
           layout={layout}
           focusId={focusId}
           onLayoutChange={setLayout}
@@ -291,7 +295,7 @@ export function CitationGraphTab({ onOpenPaper }: CitationGraphTabProps) {
             <EmptyState
               icon={SearchX}
               title="No citations match those filters"
-              description="This seed paper has neighbours, but the year range, topic, or library-only filter hides them all."
+              description="The radius, year range, topic, or library-only filter hides every citation in this neighbourhood."
               action={
                 <Button variant="outline" onClick={resetFilters}>
                   Reset filters
