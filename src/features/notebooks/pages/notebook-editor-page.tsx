@@ -20,6 +20,7 @@ import {
   FileJson,
   FileText,
   FolderKanban,
+  History,
   Loader2,
   MoreHorizontal,
   NotebookPen,
@@ -62,6 +63,7 @@ import { notebooksApi } from "../api";
 import { countWords, htmlToMarkdown } from "../lib";
 import { EditorToolbar } from "../components/editor-toolbar";
 import { NotebookOutline } from "@/features/graph/components/notebook-outline";
+import { HistoryDrawer } from "@/features/history/components/history-drawer";
 
 function EntryEditor({
   entry,
@@ -109,6 +111,18 @@ function EntryEditor({
     onEditorReady?.(editor);
     return () => onEditorReady?.(null);
   }, [editor, onEditorReady]);
+
+  // A restore from history updates the saved entry. Reflect external content
+  // changes in the editor without clobbering text the user is currently typing.
+  const appliedContent = useRef(entry.content);
+  useEffect(() => {
+    if (!editor) return;
+    if (entry.content === appliedContent.current) return;
+    appliedContent.current = entry.content;
+    if (editor.getHTML() !== entry.content) {
+      editor.commands.setContent(entry.content, false);
+    }
+  }, [entry.content, editor]);
 
   if (!editor) {
     return (
@@ -190,6 +204,7 @@ export function NotebookEditorPage() {
   const [revision, setRevision] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [entryEditor, setEntryEditor] = useState<Editor | null>(null);
   const draftRef = useRef({
     notebookTitle: "",
@@ -226,7 +241,28 @@ export function NotebookEditorPage() {
         ? current
         : notebook.tags,
     );
-  }, [notebook]);
+
+    // A restore from history replaces the saved entry. If there are no unsaved
+    // edits, refresh the draft so autosave cannot write the stale copy back.
+    if (!dirty) {
+      const savedEntry =
+        notebook.entries.find((entry) => entry.id === selectedEntryId) ?? initialEntry;
+      if (savedEntry && draftRef.current.entryId === savedEntry.id) {
+        if (
+          draftRef.current.content !== savedEntry.content ||
+          draftRef.current.entryTitle !== savedEntry.title
+        ) {
+          draftRef.current = {
+            notebookTitle: notebook.title,
+            entryId: savedEntry.id,
+            entryTitle: savedEntry.title,
+            content: savedEntry.content,
+          };
+          setEntryTitle(savedEntry.title);
+        }
+      }
+    }
+  }, [notebook, dirty, selectedEntryId]);
 
   const save = useMutation({
     mutationFn: (draft: typeof draftRef.current) =>
@@ -455,6 +491,14 @@ export function NotebookEditorPage() {
               )}
             />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="size-3.5" /> History
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
@@ -671,6 +715,13 @@ export function NotebookEditorPage() {
           className="self-start lg:sticky lg:top-24"
         />
       </div>
+
+      <HistoryDrawer
+        artifactType="notebook"
+        artifactId={notebook.id}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
 
       <ConfirmDialog
         open={deleteOpen}

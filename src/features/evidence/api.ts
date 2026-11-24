@@ -27,6 +27,8 @@ export const evidenceApi = {
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     ),
 
+  listAll: () => readDb((db) => db.evidence),
+
   create: (hypothesisId: string, input: EvidenceInput) =>
     mutateDb((db) => {
       const hypothesis = db.hypotheses.find((item) => item.id === hypothesisId);

@@ -1,11 +1,15 @@
 import {
+  Camera,
   CheckSquare,
   FileUp,
   Flag,
+  FlaskConical,
   FolderKanban,
   Library,
+  Lightbulb,
   Microscope,
   NotebookPen,
+  Scale,
 } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,6 +23,10 @@ const categoryIcon: Record<ActivityCategory, typeof FolderKanban> = {
   file: FileUp,
   milestone: Flag,
   research: Microscope,
+  experiment: FlaskConical,
+  hypothesis: Lightbulb,
+  decision: Scale,
+  snapshot: Camera,
 };
 
 const categoryTone: Record<ActivityCategory, string> = {
@@ -29,6 +37,10 @@ const categoryTone: Record<ActivityCategory, string> = {
   file: "bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-300",
   milestone: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300",
   research: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300",
+  experiment: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300",
+  hypothesis: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  decision: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300",
+  snapshot: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300",
 };
 
 function groupLabel(date: string) {

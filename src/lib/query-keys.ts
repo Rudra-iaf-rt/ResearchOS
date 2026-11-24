@@ -30,6 +30,7 @@ export const queryKeys = {
   runs: (experimentId: string) => ["experiments", experimentId, "runs"] as const,
   hypotheses: ["hypotheses"] as const,
   evidence: (hypothesisId: string) => ["hypotheses", hypothesisId, "evidence"] as const,
+  evidenceAll: ["evidence"] as const,
   decisions: ["decisions"] as const,
   snapshots: ["snapshots"] as const,
   history: (artifactType: string, artifactId: string) =>

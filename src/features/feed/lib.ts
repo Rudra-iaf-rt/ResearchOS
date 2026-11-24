@@ -21,6 +21,10 @@ const categoryToArtifactType: Record<ActivityCategory, ArtifactType | null> = {
   file: "file",
   milestone: "milestone",
   research: null,
+  experiment: null,
+  hypothesis: null,
+  decision: null,
+  snapshot: null,
 };
 
 export function effectiveArtifactType(

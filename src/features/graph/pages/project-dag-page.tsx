@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toSvg } from "html-to-image";
 import {
   ArrowLeft,
@@ -36,6 +36,7 @@ import { collectStatuses, filterGraph } from "../lib/filters";
 
 export function ProjectDAGPage() {
   const { projectId = "" } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.projectGraph(projectId),
     queryFn: () => graphApi.project(projectId),
@@ -89,13 +90,19 @@ export function ProjectDAGPage() {
     clearFocus();
   };
 
-  const handleNodeAction = useCallback((node: GraphNode) => {
-    const label =
-      node.metadata?.action === "open-run-logs" ? "Run logs" : "Experiment workspace";
-    toast.info(`${label} arrives in Phase 3`, {
-      description: `“${node.label}” will open the full ${label.toLowerCase()} once that module lands.`,
-    });
-  }, []);
+  const handleNodeAction = useCallback(
+    (node: GraphNode) => {
+      const href = node.metadata?.href;
+      if (!href) {
+        toast.info("This node has no linked record yet", {
+          description: `“${node.label}” is shown for context but does not open a workspace record.`,
+        });
+        return;
+      }
+      navigate(href);
+    },
+    [navigate],
+  );
 
   const exportPng = useCallback(async () => {
     const element = graphRef.current;
@@ -308,8 +315,8 @@ export function ProjectDAGPage() {
           <DialogHeader>
             <DialogTitle>Save graph snapshot</DialogTitle>
             <DialogDescription>
-              Saved snapshots and comparison views are planned for Phase 3. Until then, export a
-              real PNG of the current graph to share your findings.
+              Research snapshots capture project manifests, not graph images. Export a real PNG of
+              the current graph to share it, or create a research snapshot from the Snapshots page.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

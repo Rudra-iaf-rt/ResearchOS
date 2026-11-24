@@ -6,6 +6,10 @@ import { NotebookFormDialog } from "@/features/notebooks/components/notebook-for
 import { PaperFormDialog } from "@/features/library/components/paper-form-dialog";
 import { UploadDialog } from "@/features/files/components/upload-dialog";
 import { ResearchLogFormDialog } from "@/features/research-log/components/research-log-form-dialog";
+import { ExperimentModal } from "@/features/experiments/components/experiment-modal";
+import { HypothesisModal } from "@/features/hypotheses/components/hypothesis-modal";
+import { DecisionModal } from "@/features/decisions/components/decision-modal";
+import { SnapshotModal } from "@/features/snapshots/components/snapshot-modal";
 
 export type CreateKind =
   | "project"
@@ -13,7 +17,11 @@ export type CreateKind =
   | "notebook"
   | "paper"
   | "upload"
-  | "log";
+  | "log"
+  | "experiment"
+  | "hypothesis"
+  | "decision"
+  | "snapshot";
 
 interface CreateOptions {
   projectId?: string;
@@ -75,6 +83,26 @@ export function CreateDialogsProvider({ children }: { children: ReactNode }) {
         onOpenChange={(open) => !open && setActive(null)}
         defaultProjectId={active?.options.projectId}
         variant="quick"
+      />
+      <ExperimentModal
+        open={active?.kind === "experiment"}
+        onOpenChange={(open) => !open && setActive(null)}
+        defaultProjectId={active?.options.projectId}
+      />
+      <HypothesisModal
+        open={active?.kind === "hypothesis"}
+        onOpenChange={(open) => !open && setActive(null)}
+        defaultProjectId={active?.options.projectId}
+      />
+      <DecisionModal
+        open={active?.kind === "decision"}
+        onOpenChange={(open) => !open && setActive(null)}
+        defaultProjectId={active?.options.projectId}
+      />
+      <SnapshotModal
+        open={active?.kind === "snapshot"}
+        onOpenChange={(open) => !open && setActive(null)}
+        defaultProjectId={active?.options.projectId}
       />
     </CreateDialogsContext.Provider>
   );

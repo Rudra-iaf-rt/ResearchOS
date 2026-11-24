@@ -2,19 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity as ActivityIcon,
   Bell,
+  Camera,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  FlaskConical,
   FolderKanban,
   FolderOpen,
   HardDrive,
   LayoutDashboard,
   Library,
+  Lightbulb,
   LogOut,
   Microscope,
   Network,
   NotebookPen,
   Rss,
+  Scale,
   Search,
   Settings,
   SquareCheckBig,
@@ -67,6 +71,9 @@ const workspaceNav = (pendingTasks: number): NavItem[] => [
     icon: SquareCheckBig,
     badge: pendingTasks,
   },
+  { label: "Experiments", to: "/app/experiments", icon: FlaskConical },
+  { label: "Hypotheses", to: "/app/hypotheses", icon: Lightbulb },
+  { label: "Decisions", to: "/app/decisions", icon: Scale },
   { label: "Notebooks", to: "/app/notebooks", icon: NotebookPen },
   { label: "Research Library", to: "/app/library", icon: Library },
   { label: "Files", to: "/app/files", icon: FolderOpen },
@@ -80,6 +87,7 @@ const manageNav: NavItem[] = [
 
 const insightsNav: NavItem[] = [
   { label: "Knowledge Graph", to: "/app/knowledge", icon: Network },
+  { label: "Snapshots", to: "/app/snapshots", icon: Camera },
 ];
 
 function SidebarLink({

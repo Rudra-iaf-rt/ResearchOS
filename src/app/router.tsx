@@ -101,6 +101,31 @@ const TasksPage = lazy(() =>
     default: module.TasksPage,
   })),
 );
+const ExperimentsPage = lazy(() =>
+  import("@/features/experiments/pages/experiments-page").then((module) => ({
+    default: module.ExperimentsPage,
+  })),
+);
+const ExperimentDetailPage = lazy(() =>
+  import("@/features/experiments/pages/experiment-detail-page").then((module) => ({
+    default: module.ExperimentDetailPage,
+  })),
+);
+const HypothesesBoardPage = lazy(() =>
+  import("@/features/hypotheses/pages/hypotheses-board-page").then((module) => ({
+    default: module.HypothesesBoardPage,
+  })),
+);
+const DecisionsPage = lazy(() =>
+  import("@/features/decisions/pages/decisions-page").then((module) => ({
+    default: module.DecisionsPage,
+  })),
+);
+const SnapshotsPage = lazy(() =>
+  import("@/features/snapshots/pages/snapshots-page").then((module) => ({
+    default: module.SnapshotsPage,
+  })),
+);
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -167,6 +192,11 @@ export function AppRouter() {
               <Route path="projects/:projectId/tree" element={<ProjectTreePage />} />
               <Route path="knowledge" element={<KnowledgeGraphPage />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="experiments" element={<ExperimentsPage />} />
+              <Route path="experiments/:id" element={<ExperimentDetailPage />} />
+              <Route path="hypotheses" element={<HypothesesBoardPage />} />
+              <Route path="decisions" element={<DecisionsPage />} />
+              <Route path="snapshots" element={<SnapshotsPage />} />
               <Route path="notebooks" element={<NotebooksPage />} />
               <Route path="notebooks/:notebookId" element={<NotebookEditorPage />} />
               <Route path="library" element={<LibraryPage />} />

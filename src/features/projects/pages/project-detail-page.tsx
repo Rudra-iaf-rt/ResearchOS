@@ -12,6 +12,7 @@ import {
   Flag,
   FolderKanban,
   FolderOpen,
+  History,
   Library,
   Link2,
   ListTree,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/shared/section-card";
+import { HistoryDrawer } from "@/features/history/components/history-drawer";
 import { StatCard } from "@/components/shared/stat-card";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -106,6 +108,7 @@ export function ProjectDetailPage() {
   const [editingMilestone, setEditingMilestone] = useState<Milestone | undefined>();
   const [deletingMilestone, setDeletingMilestone] = useState<Milestone | undefined>();
   const [deletingNotebook, setDeletingNotebook] = useState<Notebook | undefined>();
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.project(id ?? "missing"),
@@ -336,6 +339,9 @@ export function ProjectDetailPage() {
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil className="size-4" /> Edit project
+            </Button>
+            <Button variant="outline" onClick={() => setHistoryOpen(true)}>
+              <History className="size-4" /> History
             </Button>
             <Button onClick={addTask}>
               <Plus className="size-4" /> Add task
@@ -916,6 +922,13 @@ export function ProjectDetailPage() {
         onConfirm={() => {
           if (deletingMilestone) removeMilestone.mutate(deletingMilestone);
         }}
+      />
+
+      <HistoryDrawer
+        artifactType="project"
+        artifactId={project.id}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
       />
 
       <ConfirmDialog

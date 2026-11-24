@@ -1,6 +1,5 @@
 import { subDays, subHours } from "date-fns";
 import type {
-  ArtifactRef,
   ArtifactVersion,
   Experiment,
   ExperimentRun,
