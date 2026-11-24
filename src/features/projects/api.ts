@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import { uid } from "@/lib/format";
 import { logActivity, mutateDb, readDb } from "@/services/mock/client";
+import { recordArtifactVersion } from "@/features/history/lib";
 import { buildProjectSummary } from "./lib";
 
 export interface ProjectInput {
@@ -94,6 +95,10 @@ export const projectsApi = {
       if (!project) throw new Error("Project not found");
       Object.assign(project, input, { updatedAt: new Date().toISOString() });
       if (project.status === "completed") project.progress = 100;
+      recordArtifactVersion(db, "project", project.id, {
+        label: "Project details updated",
+        summary: "A new project version was recorded after the project details changed.",
+      });
       logActivity(db, {
         category: "project",
         action: "updated project details",
@@ -110,6 +115,10 @@ export const projectsApi = {
       project.status = status;
       project.updatedAt = new Date().toISOString();
       if (status === "completed") project.progress = 100;
+      recordArtifactVersion(db, "project", project.id, {
+        label: `Status changed to ${status}`,
+        summary: `Project status moved to ${status}.`,
+      });
       logActivity(db, {
         category: "project",
         action: status === "completed" ? "marked the project complete" : "changed project status",
@@ -134,6 +143,9 @@ export const projectsApi = {
       );
       db.files = db.files.map((f) =>
         f.projectId === id ? { ...f, projectId: null } : f,
+      );
+      db.versions = db.versions.filter(
+        (version) => !(version.artifactType === "project" && version.artifactId === id),
       );
       if (project) {
         logActivity(db, {

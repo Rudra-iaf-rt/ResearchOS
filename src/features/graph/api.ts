@@ -15,6 +15,7 @@ import type {
   KnowledgeGraphPayload,
   ProjectGraphPayload,
 } from "./types";
+import { reasoningGraph } from "./lib/reasoning";
 
 const typeOrder: Record<GraphNode["type"], number> = {
   project: 0,
@@ -125,12 +126,23 @@ function artifactNodes(db: ResearchDatabase): GraphNode[] {
 
 function materialize(db: ResearchDatabase): GraphView {
   const byId = new Map<string, GraphNode>();
+  const reasoning = reasoningGraph(db);
+
   artifactNodes(db).forEach((node) => byId.set(node.id, node));
+  // Real reasoning records override their seeded graph counterparts so status
+  // changes and newly created experiments appear immediately.
+  reasoning.nodes.forEach((node) => byId.set(node.id, node));
   (db.graphNodes ?? []).forEach((node) => {
     if (!byId.has(node.id)) byId.set(node.id, node);
   });
+
   const nodes = sortNodes(Array.from(byId.values()));
-  const edges = filterValidEdges(nodes, db.graphEdges ?? []);
+  const edgeByPair = new Map<string, GraphEdge>();
+  [...(db.graphEdges ?? []), ...reasoning.edges].forEach((edge) => {
+    const key = `${edge.from}->${edge.to}`;
+    if (!edgeByPair.has(key)) edgeByPair.set(key, edge);
+  });
+  const edges = filterValidEdges(nodes, Array.from(edgeByPair.values()));
   return { nodes, edges };
 }
 
@@ -227,6 +239,7 @@ export const graphApi = {
         "paper",
         "dataset",
         "hypothesis",
+        "experiment",
         "decision",
       ]);
       const included = new Set<string>();

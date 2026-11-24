@@ -140,7 +140,11 @@ export type ActivityCategory =
   | "paper"
   | "file"
   | "milestone"
-  | "research";
+  | "research"
+  | "experiment"
+  | "hypothesis"
+  | "decision"
+  | "snapshot";
 
 /** The kind of work a researcher spent time on. */
 export type ResearchMode =
@@ -355,6 +359,207 @@ export interface AnalyticsPoint {
   papers: number;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Phase 3 — Scientific Reasoning Engine                                      */
+/* -------------------------------------------------------------------------- */
+
+export type ExperimentStatus = "draft" | "queued" | "running" | "succeeded" | "failed";
+
+export interface ParameterEntry {
+  id: string;
+  key: string;
+  value: string;
+}
+
+export interface Experiment {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  hypothesisId: string | null;
+  title: string;
+  description: string;
+  status: ExperimentStatus;
+  parameters: ParameterEntry[];
+  /** TipTap HTML scoped to this experiment. */
+  notes: string;
+  /** Linked notebooks and files (including datasets). */
+  artifactRefs: ArtifactRef[];
+  owner: Person;
+  createdBy: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export type RunStatus = "queued" | "running" | "succeeded" | "failed";
+
+export interface ExperimentRun {
+  id: string;
+  workspaceId: string;
+  experimentId: string;
+  projectId: string;
+  runNumber: number;
+  label: string;
+  status: RunStatus;
+  /** Immutable snapshot of the experiment parameters at creation time. */
+  parameters: ParameterEntry[];
+  logs: string;
+  artifactRefs: ArtifactRef[];
+  startedAt: ISODateString | null;
+  endedAt: ISODateString | null;
+  durationSeconds: number | null;
+  createdBy: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export type HypothesisStatus = "proposed" | "testing" | "supported" | "refuted";
+
+export interface Hypothesis {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  researchQuestion: string;
+  statement: string;
+  status: HypothesisStatus;
+  owner: Person;
+  createdBy: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export type EvidenceStance = "supports" | "contradicts" | "neutral";
+
+export interface HypothesisEvidence {
+  id: string;
+  workspaceId: string;
+  hypothesisId: string;
+  stance: EvidenceStance;
+  description: string;
+  artifact: ArtifactRef | null;
+  createdBy: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export type DecisionStatus = "proposed" | "accepted" | "superseded";
+
+export interface DecisionAlternative {
+  id: string;
+  title: string;
+  rationale: string;
+}
+
+/** A decision can reference experiment and hypothesis records as well as files. */
+export type ResearchArtifactType =
+  | ArtifactType
+  | "experiment"
+  | "hypothesis"
+  | "decision";
+
+export interface ResearchArtifactRef {
+  type: ResearchArtifactType;
+  id: string;
+  label: string;
+}
+
+export interface ResearchDecision {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  title: string;
+  context: string;
+  decision: string;
+  alternatives: DecisionAlternative[];
+  artifacts: ResearchArtifactRef[];
+  status: DecisionStatus;
+  owner: Person;
+  createdBy: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export type SnapshotArtifactType =
+  | "notebook"
+  | "experiment"
+  | "dataset"
+  | "file"
+  | "decision";
+
+/**
+ * A frozen copy of the metadata of a research artifact. Manifest entries are
+ * written at snapshot creation time and are never re-queried live.
+ */
+export interface SnapshotManifestEntry {
+  id: string;
+  artifactId: string;
+  artifactType: SnapshotArtifactType;
+  title: string;
+  projectId: string;
+  /** Human-readable revision, e.g. `notebook v3` or `experiment parameter set a1b2`. */
+  versionRef: string | null;
+  selectedAt: ISODateString;
+}
+
+export interface ResearchSnapshot {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  label: string;
+  description: string;
+  manifest: SnapshotManifestEntry[];
+  /** Only populated when a real DOI is supplied by the researcher. */
+  doi: string | null;
+  createdBy: string;
+  createdAt: ISODateString;
+}
+
+export type VersionArtifactType = "notebook" | "experiment" | "project" | "document";
+
+export interface VersionSnapshotData {
+  notebook?: {
+    title: string;
+    description: string;
+    tags: string[];
+    entries: NotebookEntry[];
+  };
+  experiment?: {
+    title: string;
+    description: string;
+    status: ExperimentStatus;
+    parameters: ParameterEntry[];
+    notes: string;
+    artifactRefs: ArtifactRef[];
+  };
+  project?: {
+    title: string;
+    description: string;
+    objectives: string[];
+    tags: string[];
+    status: ProjectStatus;
+    progress: number;
+  };
+  document?: {
+    title: string;
+    content: string;
+  };
+}
+
+export interface ArtifactVersion {
+  id: string;
+  workspaceId: string;
+  artifactType: VersionArtifactType;
+  artifactId: string;
+  versionNumber: number;
+  label: string;
+  summary: string;
+  /** Plain-text rendering used by the diff viewer. */
+  content: string;
+  /** Structured snapshot used for a lossless restore. */
+  data: VersionSnapshotData;
+  author: Person;
+  createdAt: ISODateString;
+}
+
 export interface ResearchDatabase {
   version: number;
   user: UserProfile;
@@ -376,6 +581,14 @@ export interface ResearchDatabase {
   graphEdges: GraphEdge[];
   /** Mock citation relationships between library papers. */
   citations: CitationLink[];
+  /** Phase 3 scientific reasoning collections. */
+  experiments: Experiment[];
+  experimentRuns: ExperimentRun[];
+  hypotheses: Hypothesis[];
+  evidence: HypothesisEvidence[];
+  decisions: ResearchDecision[];
+  snapshots: ResearchSnapshot[];
+  versions: ArtifactVersion[];
 }
 
 export interface ProjectSummary {

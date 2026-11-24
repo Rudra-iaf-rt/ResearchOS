@@ -1,4 +1,13 @@
 import { addDays, subDays, subHours, subMinutes } from "date-fns";
+import {
+  createSeedDecisions,
+  createSeedEvidence,
+  createSeedExperiments,
+  createSeedHypotheses,
+  createSeedRuns,
+  createSeedSnapshots,
+  createSeedVersions,
+} from "./reasoning-seed";
 import type {
   ActivityEvent,
   AnalyticsPoint,
@@ -2440,8 +2449,11 @@ export function createSeedSubtasks(): Task[] {
 }
 
 export function createSeedDatabase(): ResearchDatabase {
+  const seedNotebooks = structuredClone(notebooks);
+  const seedExperiments = createSeedExperiments();
+  const seedProjects = structuredClone(projects);
   return {
-    version: 3,
+    version: 4,
     user: currentUser,
     workspace: {
       id: "ws_northlight",
@@ -2464,10 +2476,10 @@ export function createSeedDatabase(): ResearchDatabase {
         productUpdates: false,
       },
     },
-    projects: structuredClone(projects),
+    projects: seedProjects,
     tasks: seedTasks(),
     milestones: structuredClone(milestones),
-    notebooks: structuredClone(notebooks),
+    notebooks: seedNotebooks,
     papers: structuredClone(papers),
     files: structuredClone(files),
     folders: structuredClone(folders),
@@ -2478,5 +2490,16 @@ export function createSeedDatabase(): ResearchDatabase {
     graphNodes: createSeedGraphNodes(),
     graphEdges: createSeedGraphEdges(),
     citations: createSeedCitations(),
+    experiments: seedExperiments,
+    experimentRuns: createSeedRuns(),
+    hypotheses: createSeedHypotheses(),
+    evidence: createSeedEvidence(),
+    decisions: createSeedDecisions(),
+    snapshots: createSeedSnapshots(),
+    versions: createSeedVersions({
+      notebooks: seedNotebooks,
+      experiments: seedExperiments,
+      projects: seedProjects,
+    }),
   };
 }

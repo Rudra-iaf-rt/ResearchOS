@@ -25,4 +25,13 @@ export const queryKeys = {
   projectGraph: (id: string) => ["graph", "project", id] as const,
   knowledgeGraph: ["graph", "knowledge"] as const,
   citationGraph: (seedId: string) => ["graph", "citations", seedId] as const,
+  experiments: ["experiments"] as const,
+  experiment: (id: string) => ["experiments", id] as const,
+  runs: (experimentId: string) => ["experiments", experimentId, "runs"] as const,
+  hypotheses: ["hypotheses"] as const,
+  evidence: (hypothesisId: string) => ["hypotheses", hypothesisId, "evidence"] as const,
+  decisions: ["decisions"] as const,
+  snapshots: ["snapshots"] as const,
+  history: (artifactType: string, artifactId: string) =>
+    ["history", artifactType, artifactId] as const,
 };

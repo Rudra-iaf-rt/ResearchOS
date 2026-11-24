@@ -8,10 +8,19 @@ import {
   createSeedSubtasks,
   createSeedTaskMilestoneAssignments,
 } from "./seed";
+import {
+  createSeedDecisions,
+  createSeedEvidence,
+  createSeedExperiments,
+  createSeedHypotheses,
+  createSeedRuns,
+  createSeedSnapshots,
+  createSeedVersions,
+} from "./reasoning-seed";
 import type { ResearchDatabase } from "@/types";
 
 const STORAGE_KEY = "researchos.demo.db.v1";
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 
 function hasStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);
@@ -55,6 +64,24 @@ function upgradeDatabase(db: ResearchDatabase): ResearchDatabase {
     }));
 
     db.version = 3;
+  }
+
+  if (db.version === 3) {
+    if (!Array.isArray(db.experiments)) db.experiments = createSeedExperiments();
+    if (!Array.isArray(db.experimentRuns)) db.experimentRuns = createSeedRuns();
+    if (!Array.isArray(db.hypotheses)) db.hypotheses = createSeedHypotheses();
+    if (!Array.isArray(db.evidence)) db.evidence = createSeedEvidence();
+    if (!Array.isArray(db.decisions)) db.decisions = createSeedDecisions();
+    if (!Array.isArray(db.snapshots)) db.snapshots = createSeedSnapshots();
+    if (!Array.isArray(db.versions)) {
+      db.versions = createSeedVersions({
+        notebooks: db.notebooks ?? [],
+        experiments: db.experiments,
+        projects: db.projects ?? [],
+      });
+    }
+
+    db.version = 4;
   }
 
   return db;

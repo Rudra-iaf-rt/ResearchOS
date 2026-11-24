@@ -1,14 +1,19 @@
 import type {
   ActivityCategory,
   ArtifactType,
+  DecisionStatus,
+  EvidenceStance,
+  ExperimentStatus,
   FileKind,
   GraphEdgeType,
   GraphNodeType,
+  HypothesisStatus,
   MilestoneStatus,
   NotificationKind,
   PaperReadStatus,
   ProjectStatus,
   ResearchMode,
+  RunStatus,
   TaskPriority,
   TaskStatus,
 } from "@/types";
@@ -72,6 +77,76 @@ export const activityCategoryMeta: Record<
   file: { label: "Files" },
   milestone: { label: "Milestones" },
   research: { label: "Research log" },
+  experiment: { label: "Experiments" },
+  hypothesis: { label: "Hypotheses" },
+  decision: { label: "Decisions" },
+  snapshot: { label: "Snapshots" },
+};
+
+export const experimentStatusMeta: Record<
+  ExperimentStatus,
+  { label: string; tone: "neutral" | "info" | "warning" | "success" | "danger" }
+> = {
+  draft: { label: "Draft", tone: "neutral" },
+  queued: { label: "Queued", tone: "info" },
+  running: { label: "Running", tone: "warning" },
+  succeeded: { label: "Succeeded", tone: "success" },
+  failed: { label: "Failed", tone: "danger" },
+};
+
+export const runStatusMeta: Record<
+  RunStatus,
+  { label: string; tone: "neutral" | "info" | "warning" | "success" | "danger" }
+> = {
+  queued: { label: "Queued", tone: "info" },
+  running: { label: "Running", tone: "warning" },
+  succeeded: { label: "Succeeded", tone: "success" },
+  failed: { label: "Failed", tone: "danger" },
+};
+
+export const hypothesisStatusMeta: Record<
+  HypothesisStatus,
+  { label: string; tone: "neutral" | "info" | "warning" | "success" | "danger" }
+> = {
+  proposed: { label: "Proposed", tone: "neutral" },
+  testing: { label: "Testing", tone: "info" },
+  supported: { label: "Supported", tone: "success" },
+  refuted: { label: "Refuted", tone: "danger" },
+};
+
+export const evidenceStanceMeta: Record<
+  EvidenceStance,
+  { label: string; tone: "success" | "danger" | "neutral" }
+> = {
+  supports: { label: "Supports", tone: "success" },
+  contradicts: { label: "Contradicts", tone: "danger" },
+  neutral: { label: "Neutral", tone: "neutral" },
+};
+
+export const decisionStatusMeta: Record<
+  DecisionStatus,
+  { label: string; tone: "neutral" | "info" | "success" | "warning" }
+> = {
+  proposed: { label: "Proposed", tone: "info" },
+  accepted: { label: "Accepted", tone: "success" },
+  superseded: { label: "Superseded", tone: "neutral" },
+};
+
+/** Allowed experiment lifecycle transitions. Final states are terminal. */
+export const experimentTransitions: Record<ExperimentStatus, ExperimentStatus[]> = {
+  draft: ["queued"],
+  queued: ["running", "draft"],
+  running: ["succeeded", "failed"],
+  succeeded: [],
+  failed: [],
+};
+
+/** Allowed run lifecycle transitions. */
+export const runTransitions: Record<RunStatus, RunStatus[]> = {
+  queued: ["running"],
+  running: ["succeeded", "failed"],
+  succeeded: [],
+  failed: [],
 };
 
 export const researchModeMeta: Record<

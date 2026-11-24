@@ -1,7 +1,9 @@
 import type {
   ActivityCategory,
   ActivityEvent,
+  AppNotification,
   ArtifactRef,
+  NotificationKind,
   Person,
   ResearchDatabase,
   ResearchMode,
@@ -39,6 +41,41 @@ export async function mutateDb<T>(
   const result = updater(db);
   saveDatabase(db);
   return result;
+}
+
+/** The signed-in demo user as a graph/link-friendly Person. */
+export function currentPerson(db: ResearchDatabase): Person {
+  return {
+    id: db.user.id,
+    name: db.user.name,
+    initials: db.user.initials,
+    role: db.user.role,
+    color: db.user.avatarColor,
+  };
+}
+
+/** Create a Phase 1 notification from a Phase 3 reasoning event. */
+export function pushNotification(
+  db: ResearchDatabase,
+  input: {
+    kind: NotificationKind;
+    title: string;
+    description: string;
+    href?: string;
+  },
+): AppNotification {
+  const notification: AppNotification = {
+    id: uid("note"),
+    kind: input.kind,
+    title: input.title,
+    description: input.description,
+    createdAt: new Date().toISOString(),
+    read: false,
+    href: input.href,
+  };
+  db.notifications.unshift(notification);
+  db.notifications = db.notifications.slice(0, 80);
+  return notification;
 }
 
 export function logActivity(

@@ -1,6 +1,7 @@
 import type { Notebook, NotebookEntry, Person } from "@/types";
 import { uid } from "@/lib/format";
 import { logActivity, mutateDb, readDb } from "@/services/mock/client";
+import { recordArtifactVersion } from "@/features/history/lib";
 
 export interface NotebookInput {
   title: string;
@@ -107,6 +108,12 @@ export const notebooksApi = {
       if (input.content !== undefined) entry.content = input.content;
       entry.updatedAt = now;
       notebook.updatedAt = now;
+      // Notebook autosave is a real version checkpoint. Identical content is
+      // deduplicated by the history helper; earlier versions are never rewritten.
+      recordArtifactVersion(db, "notebook", notebook.id, {
+        label: `Autosave · ${entry.title}`,
+        summary: `Notebook saved after editing “${entry.title}”.`,
+      });
       return notebook;
     }),
 
@@ -148,6 +155,9 @@ export const notebooksApi = {
     mutateDb((db) => {
       const notebook = db.notebooks.find((item) => item.id === id);
       db.notebooks = db.notebooks.filter((item) => item.id !== id);
+      db.versions = db.versions.filter(
+        (version) => !(version.artifactType === "notebook" && version.artifactId === id),
+      );
       if (notebook) {
         logActivity(db, {
           category: "notebook",
