@@ -160,7 +160,7 @@ export function RunRow({
             {run.parameters.length === 0 ? (
               <p className="text-[12px] text-muted-foreground">No parameters were recorded.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-border">
+              <div className="relative overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-left text-[12px]">
                   <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                     <tr>

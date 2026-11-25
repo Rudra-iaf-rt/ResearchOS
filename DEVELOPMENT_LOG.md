@@ -4,6 +4,97 @@ Newest entries first. This log records scope, decisions, problems, and verificat
 
 ---
 
+## November 24–25, 2026 — Phase 3 completion and verification
+
+### Scope completed
+
+- Added the Scientific Reasoning Engine domain and persistence:
+  - `Experiment`, `ExperimentRun`, `Hypothesis`, `HypothesisEvidence`, `ResearchDecision`, `ResearchSnapshot`, `ArtifactVersion`, and their status/union types
+  - Mock database **version 4** with `experiments`, `experimentRuns`, `hypotheses`, `evidence`, `decisions`, `snapshots`, and `versions`
+  - Additive v3 → v4 migration that preserves every Stage 1/Phase 1/Phase 2 record
+- Built Experiments at `/app/experiments` and `/app/experiments/:id`: search/filter/sort, table + grid, create/edit modal with key/value parameters, detail tabs, status transitions, notes, artifacts, history, and snapshots.
+- Built the run workflow: queued → running → succeeded/failed, immutable parameter snapshots, timestamps/duration, logs, artifacts, expandable rows, and an explicitly mock Reproduce dialog.
+- Built Hypotheses at `/app/hypotheses`: four-column Kanban with drag/menu movement, evidence side panel, supports/contradicts/neutral counts, linked experiments, and confirmation before final promotion.
+- Built Decisions at `/app/decisions`: ADR-style cards grouped by project, dynamic alternatives, project-scoped artifact links, `?focus=` detail drawer, status controls, and edit modal.
+- Built Snapshots at `/app/snapshots`: project grouping, candidate manifest, immutable manifest entries, detail table, real JSON export, optional DOI honesty, and delete confirmation.
+- Built the shared `HistoryDrawer` and `DiffViewer`; wired notebook, experiment, and project history with compare and restore.
+- Integrated reasoning events into activity, feed, and notifications; materialized reasoning nodes/edges into the existing Project DAG and Knowledge Graph; replaced Phase 3 graph placeholder actions with real navigation.
+- Added the four command-palette quick actions and the sidebar entries (Workspace: Experiments, Hypotheses, Decisions; Insights: Snapshots).
+- Added `src/features/reasoning.test.ts` (7 tests) and updated storage tests for version 4 and the v3 → v4 migration.
+
+### Decisions
+
+1. **Extend the database; never replace it.**
+   Phase 3 is a v4 migration on top of the existing graph database. Seed reasoning records reuse existing graph IDs (`exp_*`, `run_*`, `hyp_*`, `dec_*`) so Phase 2 views remain coherent.
+
+2. **Runs freeze parameters at creation.**
+   `runsApi.create` clones the experiment parameter array. Editing the experiment later does not alter historical runs, which is the auditability requirement.
+
+3. **Reproduction is deliberately mock.**
+   The Reproduce dialog states that no computation, worker, or run is created. Real execution belongs behind the future backend, not a misleading UI claim.
+
+4. **Snapshots are immutable metadata manifests.**
+   Manifest entries are written once at creation. Detail views read the stored entries rather than live artifacts, so later edits cannot rewrite history. Export is a real JSON document, not a fake download.
+
+5. **DOI is only shown when real.**
+   The optional DOI field is stored as supplied; the UI says “Not assigned” otherwise and never invents a DOI.
+
+6. **History uses content + structured data.**
+   `ArtifactVersion.content` is plain text for diffs; `data` is a structured snapshot for lossless restore. Notebook autosave dedupes identical content, and restore always appends a new version.
+
+7. **One history drawer for every artifact.**
+   `HistoryDrawer` owns selection limits, the Current badge, Compare/Restore gating, and restore confirmation. Notebook, experiment, and project pages only supply the artifact identity.
+
+8. **Markdown diffs are text diffs.**
+   Markdown mode compares the plain-text rendering; table mode parses pipe-delimited rows and highlights added/removed/changed cells.
+
+9. **Reasoning records become graph nodes, not a second graph.**
+   `graphApi` materializes experiments, runs, hypotheses, and decisions from stored records and links them with existing edge types. `GraphCanvas` was not rewritten, and no relationship is invented without a stored reference.
+
+10. **Notifications and activity are additive.**
+    `pushNotification` and `logActivity` are shared helpers. Creates, run finishes, evidence, promotions, snapshots, and restores all flow into the existing Phase 1 surfaces.
+
+11. **Table wrappers need positioning for `sr-only`.**
+    Screen-reader-only labels are absolutely positioned. Inside a horizontally scrollable table, an unpositioned wrapper let those labels escape the scroll clip and created document-level horizontal overflow on mobile. Adding `relative` to each table wrapper fixed Experiments, Snapshots, run details, manifests, and diffs.
+
+### Problems and resolutions
+
+| Problem | Resolution |
+| --- | --- |
+| Seed experiment history existed for only two experiments | Documented the selective seed and verified history/compare on `exp_cortical_cohort_a`; other experiments gain versions when edited or restored |
+| Browser session/localStorage reset during verification | Re-opened the demo workspace and repeated the affected checks; all mutations then survived reloads |
+| Feed showed 0 events immediately after the environment reset | React Query had cached the pre-reset empty result; a reload rendered 45 events, including Phase 3 activity. Not a Phase 3 data bug |
+| Mobile horizontal overflow on Experiments and Snapshots | `sr-only` table labels escaped the scroll container because the wrapper was static; added `relative` to table wrappers |
+| Radix menus/dialogs did not open with a plain `.click()` in automation | Dispatched real pointer events and used the active element for Escape keydown |
+| Hypothesis drag initially did not persist in automation | Dispatched `dragstart` and `dragover`/`drop` in separate evaluate calls; persistence then verified in storage |
+| Graph node click did not select with a bare click | Clicked the inner `role="button"` node card; `?focus=` and the detail panel then behaved correctly |
+
+### Verification
+
+- `npm run typecheck` — pass.
+- `npm run lint` — pass.
+- `npm test` — **88 tests across 13 files**, all passing (7 in `reasoning.test.ts`, 5 storage tests).
+- `npm run build` — pass; **3,622 modules transformed**; only pre-existing chunk-size/circular-chunk warnings.
+- Browser smoke test on November 24–25, 2026:
+  - **Experiments:** 8 seed rows; search/filter/sort; modal validation and creation; detail tabs; 2 seed runs; run transition controls and allowed-next copy; expandable run details; mock Reproduce dialog; history versions/Current/diff (+1/−1) across text/Markdown/Table modes.
+  - **Hypotheses:** four columns; real drag persistence (`testing` stored, columns 0/4/5/0); side panel; evidence form added a supporting entry and incremented counts; final promotion opened the confirmation alert.
+  - **Decisions:** 4 cards across project groups; `?focus=dec_ica_components` detail; dynamic alternatives and project-scoped artifact suggestions in the edit modal.
+  - **Snapshots:** 3 seeded snapshots grouped by project; detail manifest table; real `application/json` export; created a 10-entry snapshot; delete confirmation removed it without touching source records.
+  - **History:** notebook v1/v2 → restore created v3 and kept v1/v2; project v1/v2 with Current; experiment v1/v2 compare with +1/−1.
+  - **Command palette:** New experiment, New hypothesis, New decision, and Create snapshot all opened their real dialogs.
+  - **Integration:** activity gained hypothesis/evidence/snapshot/restore events; notifications gained “Evidence recorded”, “Hypothesis supported”, and “Version restored”; feed showed 45 events after reload; Project DAG rendered 25 nodes including reasoning nodes and navigated to the experiment.
+  - **Phase 1/2 regression:** Dashboard, Projects, Project detail, Tasks, Notebooks, Notebook editor, Library, Files, Feed, Activity, Notifications, Knowledge Graph, Project DAG, Project Tree, Research Log, and Settings loaded with no console errors.
+  - **Responsive:** 390, 768, and 1280 px via same-origin iframes; zero horizontal overflow on Experiments, Experiment detail, Hypotheses, Decisions, and Snapshots after the wrapper fix.
+  - **Accessibility:** Lighthouse 0.95–0.96 on the four new list pages; remaining findings are shared muted-text/avatar contrast and global search/profile accessible-name mismatch.
+
+### Follow-ups
+
+- Phase 4 is intentionally not started.
+- Document version restore, binary snapshot archives, and real run execution remain deferred (see `IMPLEMENTATION_STATUS.md`).
+- Backend, authentication, realtime, workspace-scoped queries, and real sync remain deferred.
+
+---
+
 ## November 23, 2026 — Phase 2 completion and verification
 
 ### Scope completed

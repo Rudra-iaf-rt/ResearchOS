@@ -185,7 +185,7 @@ export function SnapshotsPage() {
                 </Badge>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-subtle">
+              <div className="relative overflow-x-auto rounded-xl border border-border bg-card shadow-subtle">
                 <table className="w-full min-w-[720px] text-left text-[13px]">
                   <caption className="sr-only">
                     Snapshots for {group.project?.title ?? "this project"}

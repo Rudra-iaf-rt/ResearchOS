@@ -1,8 +1,8 @@
 # ResearchOS — Architecture
 
-Last updated: **November 23, 2026**
+Last updated: **November 25, 2026**
 
-Phase 1 adds a daily research layer on top of the Stage 1 workspace. Phase 2 adds a shared knowledge-graph layer — graph canvas, project DAG, project tree, notebook outline, file tree, citation graph, and the workspace knowledge graph — without changing the existing architecture or design language. This document describes how the frontend is organized, how data flows, and where future backend/authentication work plugs in.
+Phase 1 adds a daily research layer on top of the Stage 1 workspace. Phase 2 adds a shared knowledge-graph layer. Phase 3 adds a scientific reasoning layer — experiments, runs, hypotheses/evidence, decisions, snapshots, and version history — without changing the existing architecture or design language. This document describes how the frontend is organized, how data flows, and where future backend/authentication work plugs in.
 
 ---
 
@@ -19,12 +19,13 @@ Phase 1 adds a daily research layer on top of the Stage 1 workspace. Phase 2 add
 | Charts | Recharts |
 | Graph canvas | React Flow (`@xyflow/react`) + dagre layout |
 | Graph export | `html-to-image` (`toSvg`) + canvas |
+| Text diff | `diff` (`diffLines`, `diffWords`) |
 | Tree view | `react-arborist` |
 | Feedback | Sonner toasts, skeleton/empty/error states |
 | Tests | Vitest + Testing Library (jsdom) |
 | Persistence (current) | Versioned localStorage demo database behind a mock provider |
 
-There is no backend and no authentication in Phase 2. The app must not be deployed publicly in this state.
+There is no backend and no authentication in Phase 3. The app must not be deployed publicly in this state.
 
 ---
 
@@ -43,9 +44,14 @@ src/
 │  ├─ artifacts/            Artifact scanning, resolution, links (Phase 1)
 │  ├─ auth/                 Local demo auth screens (Stage 1)
 │  ├─ dashboard/            Today dashboard API + page
+│  ├─ decisions/            ADR-style decision cards, detail, modal, grouping
+│  ├─ evidence/             Hypothesis evidence API
+│  ├─ experiments/          Experiment list/detail, parameters, notes, schema, modal
 │  ├─ feed/                 Research Feed API, helpers, item, day sheet, page
 │  ├─ files/                File library
 │  ├─ graph/                Knowledge graph: canvas, layouts, DAG/tree/citation pages, outline, file tree
+│  ├─ history/              Artifact versions, HistoryDrawer, DiffViewer, restore
+│  ├─ hypotheses/           Four-column Kanban, side panel, evidence form, modal
 │  ├─ library/              Research papers
 │  ├─ milestones/           Project milestones
 │  ├─ notebooks/            Notebooks and editor
@@ -53,8 +59,10 @@ src/
 │  ├─ onboarding/           First-run onboarding
 │  ├─ projects/             Projects and project detail
 │  ├─ research-log/         Log API, schema, helpers, form, item, page
+│  ├─ runs/                 Run lifecycle API, rows/list/status strip, Reproduce dialog
 │  ├─ search/               Cross-entity search
 │  ├─ settings/             Preferences and workspace settings
+│  ├─ snapshots/            Snapshot API, manifest, modal, project grouping, export
 │  ├─ tasks/                Tasks
 │  └─ workspace/            Workspace member directory API
 ├─ lib/                     Formatting, constants, query keys, momentum math
@@ -141,6 +149,10 @@ Public routes stay eager; app routes are lazy chunks inside `ProtectedRoute` →
 | `/app/projects/:projectId/graph` | Project hypothesis → experiment → run DAG |
 | `/app/projects/:projectId/tree` | Project milestone/task tree |
 | `/app/knowledge` | Workspace knowledge graph (`?focus=`) |
+| `/app/experiments`, `/app/experiments/:experimentId` | Experiments and detail tabs (`?tab=`) |
+| `/app/hypotheses` | Hypothesis Kanban and evidence side panel |
+| `/app/decisions` | Decision records (`?focus=`) |
+| `/app/snapshots` | Frozen project manifests |
 | `/app/tasks` | Tasks and milestones |
 | `/app/notebooks`, `/app/notebooks/:notebookId` | Notebooks (editor includes the outline rail) |
 | `/app/library` | Research Library (`?paper=`, `?tab=graph`) |
@@ -281,6 +293,73 @@ interface CitationLink { id: string; from: string; to: string }
 
 `Task` gains optional `milestoneId` and `parentTaskId` (one subtask level). `Folder` gains optional `projectId`, so folders and their descendants can be moved to a project.
 
+Phase 3 adds:
+
+```ts
+type ExperimentStatus = "draft" | "queued" | "running" | "succeeded" | "failed";
+type RunStatus = "queued" | "running" | "succeeded" | "failed";
+type HypothesisStatus = "proposed" | "testing" | "supported" | "refuted";
+type EvidenceStance = "supports" | "contradicts" | "neutral";
+type DecisionStatus = "proposed" | "accepted" | "superseded";
+type SnapshotArtifactType = "notebook" | "experiment" | "dataset" | "file" | "decision";
+type VersionArtifactType = "notebook" | "experiment" | "project" | "document";
+
+interface Experiment {
+  id: string; workspaceId: string; projectId: string;
+  hypothesisId: string | null; title: string; description: string;
+  status: ExperimentStatus; parameters: ParameterEntry[];
+  notes: string; artifactRefs: ArtifactRef[]; owner: Person;
+  createdBy: string; createdAt: string; updatedAt: string;
+}
+
+interface ExperimentRun {
+  id: string; workspaceId: string; experimentId: string; projectId: string;
+  runNumber: number; label: string; status: RunStatus;
+  parameters: ParameterEntry[];        // frozen at creation
+  logs: string; artifactRefs: ArtifactRef[];
+  startedAt: string | null; endedAt: string | null; durationSeconds: number | null;
+  createdBy: string; createdAt: string; updatedAt: string;
+}
+
+interface Hypothesis {
+  id: string; workspaceId: string; projectId: string;
+  researchQuestion: string; statement: string; status: HypothesisStatus;
+  owner: Person; createdBy: string; createdAt: string; updatedAt: string;
+}
+
+interface HypothesisEvidence {
+  id: string; workspaceId: string; hypothesisId: string; stance: EvidenceStance;
+  description: string; artifact: ArtifactRef | null;
+  createdBy: string; createdAt: string; updatedAt: string;
+}
+
+interface ResearchDecision {
+  id: string; workspaceId: string; projectId: string;
+  title: string; context: string; decision: string;
+  alternatives: DecisionAlternative[]; artifacts: ResearchArtifactRef[];
+  status: DecisionStatus; owner: Person;
+  createdBy: string; createdAt: string; updatedAt: string;
+}
+
+interface ResearchSnapshot {
+  id: string; workspaceId: string; projectId: string;
+  label: string; description: string;
+  manifest: SnapshotManifestEntry[];    // immutable after creation
+  doi: string | null; createdBy: string; createdAt: string;
+}
+
+interface ArtifactVersion {
+  id: string; workspaceId: string;
+  artifactType: VersionArtifactType; artifactId: string;
+  versionNumber: number; label: string; summary: string;
+  content: string;                      // plain text for diffs
+  data: VersionSnapshotData;            // structured, lossless restore
+  author: Person; createdAt: string;
+}
+```
+
+`ParameterEntry` is `{ id, key, value }`. `ResearchArtifactType` extends `ArtifactType` with `experiment`, `hypothesis`, and `decision`, so decisions can link reasoning records without inventing a second link model.
+
 ### Artifact node ID convention
 
 | Source | Node ID |
@@ -399,6 +478,63 @@ All three graph views use the same hook, so focus is shareable and survives relo
 
 The editor exposes its live TipTap instance through `onEditorReady`. `NotebookOutline` re-extracts headings from the serialized document on change, renders a nested collapsible tree, scrolls to headings in the live editor, and reorders sections by rewriting only the moved section’s HTML span. Autosave then persists the document, so formatting and non-heading content are preserved.
 
+### Reasoning mutations
+
+```text
+ExperimentModal / Run controls / Kanban / EvidenceForm / DecisionModal / SnapshotModal
+  → Zod validation (where a form exists)
+  → feature API mutation
+      → mutateDb:
+          - validate links against database truth
+          - write the reasoning record (actor/workspace/timestamps)
+          - logActivity(category: experiment | hypothesis | decision | snapshot)
+          - pushNotification(...) where the event is user-visible
+          - persist database
+  → invalidate the affected query keys
+  → toast + refreshed list/detail
+```
+
+Status transitions are guarded in the API, not only in the UI:
+
+- Experiments: `draft → queued → running → succeeded/failed`.
+- Runs: `queued → running → succeeded/failed`.
+- Hypotheses: any column move, with Supported/Refuted requiring an explicit confirmation dialog.
+- Decisions: proposed/accepted/superseded.
+- Snapshots: create/delete only; manifest entries are never updated.
+
+### Version history and restore
+
+```text
+Artifact edit (notebook autosave, experiment save, project edit)
+  → recordArtifactVersion(db, type, id)
+      → artifactSnapshot() builds { content, data }
+      → skip if content + data are unchanged
+      → append ArtifactVersion (next version number)
+  → persist
+```
+
+`HistoryDrawer` lists versions oldest first, marks the highest version Current, caps selection at two, enables Compare only at two, and enables Restore only at one historical version. Restore applies the stored `data` to the live record, then appends a **new** version labelled `Restored <source>`; it never deletes or rewrites prior versions. `DiffViewer` compares `content` as text, Markdown-as-text, or parsed pipe-delimited table rows. `document` is accepted by the contract but has no editor, so restore is implemented only for notebooks, experiments, and projects.
+
+### Snapshot creation and export
+
+```text
+SnapshotModal
+  → snapshotsApi.candidates(projectId)
+      → notebooks, experiments, datasets, files, decisions for the project
+  → user selects candidates + label/description/optional DOI
+  → snapshotsApi.create
+      → writes SnapshotManifestEntry[] once (title, type, revision ref, selectedAt)
+      → logActivity + pushNotification
+  → snapshotsApi.manifestExport(snapshot)
+      → real application/json download
+```
+
+Snapshot detail views read the stored manifest; they do not re-query source artifacts. DOI is never generated or registered.
+
+### Reasoning graph materialization
+
+`graphApi.project` and `graphApi.knowledge` add nodes for stored experiments, runs, hypotheses, and decisions, then connect them using existing edge types and the existing ID space. The DAG therefore reflects the same records the reasoning pages edit, while `GraphCanvas`, layouts, filters, and `?focus=` remain unchanged. Node detail actions navigate to the real experiment/run/hypothesis/decision destination instead of placeholder toasts.
+
 ---
 
 ## 8. Persistence and migration
@@ -406,18 +542,19 @@ The editor exposes its live TipTap instance through `onEditorReady`. `NotebookOu
 | Item | Value |
 | --- | --- |
 | Storage key | `researchos.demo.db.v1` (kept for compatibility) |
-| Current version | `3` |
+| Current version | `4` |
 | Session key | `researchos.session.v1` |
 | UI state key | `researchos.ui.v1` |
 
 `loadDatabase()`:
 
 1. If storage is unavailable, return an in-memory seed.
-2. If no record exists, seed and persist version 3.
+2. If no record exists, seed and persist version 4.
 3. If the stored version is not a number or is newer than the app, reseed.
 4. If version 1, add `researchLog` (seed entries) and review notifications if absent, then set version 2.
 5. If version 2, add `graphNodes`, `graphEdges`, and `citations` if absent, then set version 3.
-6. Otherwise return parsed data.
+6. If version 3, add `experiments`, `experimentRuns`, `hypotheses`, `evidence`, `decisions`, `snapshots`, and `versions` if absent, then set version 4.
+7. Otherwise return parsed data.
 
 `mutateDb()` always loads, applies the updater, and saves. A full localStorage quota is swallowed so the in-memory session continues; the next successful mutation persists again.
 
@@ -436,7 +573,7 @@ The editor exposes its live TipTap instance through `onEditorReady`. `NotebookOu
 
 Recent artifacts are recorded when a project detail, notebook editor, or library paper is opened. They power Today's "Continue working" with a fallback to recent notebooks/papers.
 
-Graph focus is **URL state**, not a Zustand store: `useGraphFocus` reads/writes `?focus=` so selections are shareable and survive reloads. Graph filters and layout are component state scoped to each view.
+Graph focus is **URL state**, not a Zustand store: `useGraphFocus` reads/writes `?focus=` so selections are shareable and survive reloads. Graph filters and layout are component state scoped to each view. Decision focus uses the same `?focus=` convention. History selection, diff mode, and open/closed drawer state are local component state so they reset when the drawer closes.
 
 ---
 
@@ -454,9 +591,15 @@ Graph focus is **URL state**, not a Zustand store: `useGraphFocus` reads/writes 
 - **Notebook outline:** right-rail, collapsible, nested heading tree with drag reorder; hidden below `lg`.
 - **File tree:** left-rail folder/file tree with drag/drop, context menus, size roll-ups, and project linking.
 - **Citation graph:** a Library tab with seed selector, radius, year range, library-only and topic filters, and the existing paper sheet as the detail destination.
+- **Experiments:** table/grid toggle, combined filters, status badges, parameter editor, detail tabs, and history/snapshot actions.
+- **Runs:** expandable rows with frozen parameters, logs, artifacts, timestamps, allowed transitions, and an explicitly mock Reproduce dialog.
+- **Hypotheses:** four-column Kanban with drag/menu movement, counts, evidence side panel, and a final-promotion confirmation dialog.
+- **Decisions:** project-grouped ADR cards, detail drawer, dynamic alternatives, and project-scoped artifact suggestions.
+- **Snapshots:** project-grouped manifest tables, create modal with live selection, JSON export, and delete confirmation.
+- **History/diff:** shared `HistoryDrawer` and `DiffViewer` reused by notebook, experiment, and project pages.
 - **Empty/loading/error:** skeleton placeholders and contextual `EmptyState` actions; no dead-end screens.
 
-Design tokens and existing shared components are reused; Phase 2 introduces no parallel design system.
+Design tokens and existing shared components are reused; Phase 3 introduces no parallel design system. Table wrappers that contain `sr-only` labels use `relative` so absolutely positioned screen-reader text cannot escape a horizontal scroll container and create page-level overflow.
 
 ### Accessibility
 
@@ -465,6 +608,9 @@ Design tokens and existing shared components are reused; Phase 2 introduces no p
 - Focus rings are visible and do not rely on color alone; type is communicated with an icon and text label.
 - Escape closes the node details, snapshot dialog, rename dialog, and filter popover; each restores focus to its trigger.
 - Legends label edge direction and dashed meaning in text, not just color.
+- Reasoning dialogs use labelled inputs, focus trapping, Escape close, and `aria-live` status text for Kanban movement and history selection.
+- History rows are checkboxes with explicit labels; Compare/Restore are disabled until their selection rules are met.
+- Diff tables have captions and screen-reader labels; changes are communicated with text markers as well as colour.
 
 ---
 
@@ -472,7 +618,7 @@ Design tokens and existing shared components are reused; Phase 2 introduces no p
 
 - The demo session is client-side and is not authentication.
 - Identity permissions are enforced in APIs, but a malicious client could edit localStorage directly; this is acceptable only for the local prototype.
-- No secrets, credentials, or network calls exist in Phase 2.
+- No secrets, credentials, or network calls exist in Phase 3.
 - The sync indicator is a visual simulator and must not be presented as real durability.
 - Citation edges and external paper nodes are mock fixtures. The UI states they are not externally verified, and they must not be cited as real bibliographic data.
 
@@ -498,9 +644,10 @@ Design tokens and existing shared components are reused; Phase 2 introduces no p
 ### Feature growth
 
 - Add graph authoring: create/edit nodes and edges, link artifacts from notebooks/papers, and persist positions.
-- Replace placeholder project-DAG actions with experiment/run-log workflows.
+- Add real run execution/reproduction behind the backend boundary; the current Reproduce dialog intentionally does not execute.
+- Add binary snapshot archives and document-version restore when storage/document editors exist.
 - Add verified citation import (DOI/Crossref/OpenAlex) and real provenance.
-- Add notification generation inside domain mutations.
+- Notification generation is already wired for Phase 3 domain mutations; extend it to task/project events.
 - Add review submission/approval transitions.
 - Add saved feed filters and deeper search.
 - Add server-backed "recently viewed" history if cross-device continuity is required.

@@ -1,8 +1,8 @@
 # ResearchOS — API Documentation
 
-Last updated: **November 23, 2026**
+Last updated: **November 25, 2026**
 
-Phase 1 and Phase 2 APIs are Promise-based frontend service modules backed by the local demo database. They are intentionally shaped so a FastAPI client can replace the mock transport without changing pages.
+Phase 1, Phase 2, and Phase 3 APIs are Promise-based frontend service modules backed by the local demo database. They are intentionally shaped so a FastAPI client can replace the mock transport without changing pages.
 
 ---
 
@@ -14,7 +14,7 @@ Phase 1 and Phase 2 APIs are Promise-based frontend service modules backed by th
 | Transport | `readDb` / `mutateDb` from `src/services/mock/client.ts` |
 | Return type | `Promise<T>` for reads and writes |
 | Latency | 90 ms in development, 0 ms in tests |
-| Persistence | `localStorage` key `researchos.demo.db.v1`, version 3 |
+| Persistence | `localStorage` key `researchos.demo.db.v1`, version 4 |
 | Identity | Supplied by `identityProvider`, never by page code |
 | Permissions | Asserted inside mutating APIs |
 | Errors | `Error` with a user-readable message; pages surface a toast or error state |
@@ -47,6 +47,10 @@ queryKeys = {
   projectGraph,   // ["graph", "project", id]
   knowledgeGraph, // ["graph", "knowledge"]
   citationGraph,  // ["graph", "citations", seedId]
+  experiments, experiment(id), runs(experimentId),
+  hypotheses, evidence(hypothesisId), evidenceAll,
+  decisions, snapshots,
+  history(artifactType, artifactId),
 }
 ```
 
@@ -347,7 +351,111 @@ Failed validations throw before any write, so the stored record is preserved.
 
 ---
 
-## 7. Workspace API
+## 7. Scientific Reasoning APIs
+
+All modules use `readDb`/`mutateDb`, stamp `workspaceId` and the current actor, update `updatedAt`, and write activity/notifications for user-visible events.
+
+### Experiments — `src/features/experiments/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `experimentsApi.list()` | `Promise<Experiment[]>` | All experiments |
+| `experimentsApi.get(id)` | `Promise<Experiment>` | Throws `Experiment not found` |
+| `experimentsApi.create(input)` | `Promise<Experiment>` | Validates project/hypothesis consistency and parameters; starts `draft`; logs + notifies |
+| `experimentsApi.update(id, input)` | `Promise<Experiment>` | Partial update with link/parameter validation |
+| `experimentsApi.setStatus(id, next)` | `Promise<Experiment>` | Enforces `experimentTransitions`; notifies on succeeded/failed |
+| `experimentsApi.saveParameters(id, parameters)` | `Promise<Experiment>` | Validates non-empty/unique keys |
+| `experimentsApi.saveNotes(id, html)` | `Promise<Experiment>` | TipTap HTML |
+| `experimentsApi.linkArtifact(id, type, artifactId)` | `Promise<Experiment>` | Notebooks and files only; resolves against database truth |
+| `experimentsApi.unlinkArtifact(id, type, artifactId)` | `Promise<Experiment>` | Removes the reference |
+| `experimentsApi.remove(id)` | `Promise<{ id }>` | Also removes the experiment's versions |
+
+### Runs — `src/features/runs/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `runsApi.list(experimentId)` | `Promise<ExperimentRun[]>` | Sorted by `runNumber` |
+| `runsApi.listAll()` | `Promise<ExperimentRun[]>` | All runs |
+| `runsApi.get(runId)` | `Promise<ExperimentRun>` | Throws `Run not found` |
+| `runsApi.create(experimentId, { label })` | `Promise<ExperimentRun>` | Freezes experiment parameters; starts `queued`; logs activity |
+| `runsApi.setStatus(runId, next)` | `Promise<ExperimentRun>` | Enforces `runTransitions`; writes timestamps, duration, logs, activity, and finish notification |
+
+### Hypotheses and evidence
+
+`src/features/hypotheses/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `hypothesesApi.list()` / `get(id)` | `Promise<Hypothesis[]>` / `Promise<Hypothesis>` | — |
+| `hypothesesApi.create(input)` | `Promise<Hypothesis>` | Starts `proposed`; validates project |
+| `hypothesesApi.update(id, input)` | `Promise<Hypothesis>` | Partial update |
+| `hypothesesApi.setStatus(id, status)` | `Promise<Hypothesis>` | Any column move; supported/refuted log + notify |
+
+`src/features/evidence/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `evidenceApi.list(hypothesisId)` | `Promise<HypothesisEvidence[]>` | Sorted oldest first |
+| `evidenceApi.listAll()` | `Promise<HypothesisEvidence[]>` | All evidence |
+| `evidenceApi.create(hypothesisId, input)` | `Promise<HypothesisEvidence>` | `stance` is supports/contradicts/neutral; resolves optional artifact; logs + notifies |
+| `evidenceApi.remove(evidenceId)` | `Promise<{ id }>` | Logs the removal |
+
+### Decisions — `src/features/decisions/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `decisionsApi.list()` / `get(id)` | `Promise<ResearchDecision[]>` / `Promise<ResearchDecision>` | — |
+| `decisionsApi.create(input)` | `Promise<ResearchDecision>` | Validates title/context/decision, alternatives, and project-scoped artifacts; logs + notifies |
+| `decisionsApi.update(id, input)` | `Promise<ResearchDecision>` | Re-validates the merged record |
+| `decisionsApi.setStatus(id, status)` | `Promise<ResearchDecision>` | proposed/accepted/superseded |
+| `decisionsApi.remove(id)` | `Promise<{ id }>` | Logs the deletion |
+
+### Snapshots — `src/features/snapshots/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `snapshotsApi.list()` | `Promise<ResearchSnapshot[]>` | Newest first |
+| `snapshotsApi.get(id)` | `Promise<ResearchSnapshot>` | Throws `Snapshot not found` |
+| `snapshotsApi.candidates(projectId)` | `Promise<SnapshotCandidate[]>` | Notebooks, experiments, datasets, files, decisions |
+| `snapshotsApi.create(input)` | `Promise<ResearchSnapshot>` | Requires at least one selected item; writes the immutable manifest; logs + notifies |
+| `snapshotsApi.remove(id)` | `Promise<{ id }>` | Deletes the snapshot only; sources are untouched |
+| `snapshotsApi.manifestExport(snapshot)` | `Promise<ManifestExport>` | Real JSON payload; metadata only |
+
+### History and diff — `src/features/history/api.ts`
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `historyApi.list(type, id)` | `Promise<ArtifactVersion[]>` | Oldest first |
+| `historyApi.get(versionId)` | `Promise<ArtifactVersion>` | Throws `Version not found` |
+| `historyApi.create(type, id, options)` | `Promise<ArtifactVersion>` | Manual version |
+| `historyApi.restore(versionId)` | `Promise<ArtifactVersion>` | Applies `data`, appends a new version, logs + notifies; never deletes history |
+
+Pure helpers in `src/features/history/lib.ts`:
+
+- `htmlToText`, `notebookVersionContent`, `experimentVersionContent`, `projectVersionContent`
+- `recordArtifactVersion`, `nextVersionNumber`, `artifactSnapshot`
+- `parseTableText` for the table diff mode
+
+`HistoryDrawer` accepts `artifactType: "notebook" | "experiment" | "project" | "document"`, `artifactId`, `open`, and `onOpenChange`. `DiffViewer` accepts the two versions and a `mode` of `text`, `markdown`, or `table`.
+
+### Status transition tables
+
+| Experiment | Allowed next |
+| --- | --- |
+| draft | queued |
+| queued | running |
+| running | succeeded, failed |
+| succeeded / failed | final |
+
+| Run | Allowed next |
+| --- | --- |
+| queued | running |
+| running | succeeded, failed |
+| succeeded / failed | final |
+
+---
+
+## 8. Workspace API
 
 `src/features/workspace/api.ts`
 
@@ -359,7 +467,7 @@ Returns the workspace member directory derived from people referenced by databas
 
 ---
 
-## 8. Identity API
+## 9. Identity API
 
 `src/services/identity/index.ts`
 
@@ -409,7 +517,7 @@ Permission values: `artifact:read`, `artifact:write`, `artifact:delete`, `log:wr
 
 ---
 
-## 9. Dashboard API
+## 10. Dashboard API
 
 `src/features/dashboard/api.ts`
 
@@ -432,13 +540,13 @@ Reads the database once and returns:
 
 ---
 
-## 10. Database schema (v3)
+## 11. Database schema (v4)
 
 `src/services/mock/storage.ts`, `src/services/mock/seed.ts`, `src/types/index.ts`
 
 ```ts
 interface ResearchDatabase {
-  version: 3;
+  version: 4;
   user: UserProfile;
   workspace: Workspace;
   preferences: AppPreferences;
@@ -454,6 +562,13 @@ interface ResearchDatabase {
   graphNodes: GraphNode[];           // added in v3
   graphEdges: GraphEdge[];           // added in v3
   citations: CitationLink[];         // added in v3
+  experiments: Experiment[];         // added in v4
+  experimentRuns: ExperimentRun[];   // added in v4
+  hypotheses: Hypothesis[];          // added in v4
+  evidence: HypothesisEvidence[];    // added in v4
+  decisions: ResearchDecision[];     // added in v4
+  snapshots: ResearchSnapshot[];     // added in v4
+  versions: ArtifactVersion[];       // added in v4
   notifications: AppNotification[];
   analytics: AnalyticsPoint[];
 }
@@ -468,6 +583,32 @@ interface ResearchDatabase {
 | `CitationLink` | `id`, `from`, `to` — undirected mock citation edge |
 
 Artifact node IDs are `project:<id>`, `paper:<id>`, `notebook:<id>`, and `dataset:<fileId>`. Seeded graph-only nodes use plain IDs. `metadata.inLibrary === false` marks external citation nodes that are not part of the local library.
+
+### Phase 3 reasoning types
+
+| Type | Key fields |
+| --- | --- |
+| `Experiment` | `id`, `workspaceId`, `projectId`, `hypothesisId`, `title`, `description`, `status`, `parameters`, `notes`, `artifactRefs`, `owner`, `createdBy`, timestamps |
+| `ExperimentRun` | `id`, `experimentId`, `projectId`, `runNumber`, `label`, `status`, `parameters` (frozen), `logs`, `artifactRefs`, `startedAt`, `endedAt`, `durationSeconds`, timestamps |
+| `Hypothesis` | `id`, `projectId`, `researchQuestion`, `statement`, `status`, `owner`, timestamps |
+| `HypothesisEvidence` | `id`, `hypothesisId`, `stance`, `description`, `artifact`, timestamps |
+| `ResearchDecision` | `id`, `projectId`, `title`, `context`, `decision`, `alternatives`, `artifacts`, `status`, `owner`, timestamps |
+| `ResearchSnapshot` | `id`, `projectId`, `label`, `description`, `manifest`, `doi`, `createdBy`, `createdAt` |
+| `ArtifactVersion` | `id`, `artifactType`, `artifactId`, `versionNumber`, `label`, `summary`, `content`, `data`, `author`, `createdAt` |
+
+Status unions:
+
+```ts
+type ExperimentStatus = "draft" | "queued" | "running" | "succeeded" | "failed";
+type RunStatus = "queued" | "running" | "succeeded" | "failed";
+type HypothesisStatus = "proposed" | "testing" | "supported" | "refuted";
+type EvidenceStance = "supports" | "contradicts" | "neutral";
+type DecisionStatus = "proposed" | "accepted" | "superseded";
+type SnapshotArtifactType = "notebook" | "experiment" | "dataset" | "file" | "decision";
+type VersionArtifactType = "notebook" | "experiment" | "project" | "document";
+```
+
+`SnapshotManifestEntry` stores `artifactId`, `artifactType`, `title`, `projectId`, `versionRef`, and `selectedAt` once at creation. `ArtifactVersion.data` is one of `notebook`, `experiment`, `project`, or `document` snapshot shapes; `content` is the plain-text rendering used by diffs.
 
 ### ResearchLogEntry
 
@@ -501,17 +642,18 @@ Events are capped at 120 entries (`logActivity`).
 
 | From | To | Behavior |
 | --- | --- | --- |
-| none | 3 | Full seed |
-| 1 | 3 | Add seeded `researchLog` + review notifications, then v2 → v3 graph additions; preserve all existing collections |
-| 2 | 3 | Add seeded `graphNodes`, `graphEdges`, and `citations` if absent; preserve all existing collections |
-| > 3 | 3 | Reseed (forward-incompatible database) |
-| invalid JSON | 3 | Reseed |
+| none | 4 | Full seed |
+| 1 | 4 | Add seeded `researchLog` + review notifications, graph additions, then reasoning additions; preserve all existing collections |
+| 2 | 4 | Add seeded graph collections, then reasoning collections; preserve all existing collections |
+| 3 | 4 | Add seeded `experiments`, `experimentRuns`, `hypotheses`, `evidence`, `decisions`, `snapshots`, and `versions` if absent; preserve all existing collections |
+| > 4 | 4 | Reseed (forward-incompatible database) |
+| invalid JSON | 4 | Reseed |
 
-Storage key intentionally remains `researchos.demo.db.v1` so upgrades find Stage 1 data. Graph collections are additive; no Phase 1 records are replaced.
+Storage key intentionally remains `researchos.demo.db.v1` so upgrades find Stage 1 data. Graph and reasoning collections are additive; no Phase 1/Phase 2 records are replaced. Deleting a notebook, experiment, or project removes that artifact's versions; snapshot manifests remain frozen.
 
 ---
 
-## 11. Client-side state APIs
+## 12. Client-side state APIs
 
 ### UI store (`src/store/ui-store.ts`)
 
@@ -536,7 +678,7 @@ No network request is made.
 
 ---
 
-## 12. Future REST mapping
+## 13. Future REST mapping
 
 When FastAPI is introduced, each service method maps to a conventional endpoint. The frontend contract should remain stable:
 

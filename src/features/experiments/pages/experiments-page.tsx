@@ -267,7 +267,7 @@ export function ExperimentsPage() {
           }
         />
       ) : layout === "table" ? (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-subtle">
+        <div className="relative overflow-x-auto rounded-xl border border-border bg-card shadow-subtle">
           <table className="w-full min-w-[760px] text-left text-[13px]">
             <caption className="sr-only">Experiments</caption>
             <thead className="border-b border-border bg-muted/40 text-[11.5px] uppercase tracking-wide text-muted-foreground">

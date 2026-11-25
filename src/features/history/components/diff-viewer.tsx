@@ -168,7 +168,7 @@ export function DiffViewer({ left, right, mode }: DiffViewerProps) {
           These versions have no {mode === "table" ? "row" : "line"} differences.
         </p>
       ) : mode === "table" && tableDiff ? (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full text-left text-[12px]">
             <caption className="sr-only">
               Table differences between {left.label} and {right.label}

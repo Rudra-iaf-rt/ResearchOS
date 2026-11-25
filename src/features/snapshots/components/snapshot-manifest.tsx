@@ -23,7 +23,7 @@ export function SnapshotManifest({ manifest }: { manifest: SnapshotManifestEntry
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="relative overflow-x-auto rounded-lg border border-border">
       <table className="w-full min-w-[560px] text-left text-[12.5px]">
         <caption className="sr-only">Snapshot manifest</caption>
         <thead className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
